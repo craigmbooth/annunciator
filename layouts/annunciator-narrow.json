@@ -184,6 +184,20 @@
               "min": 52
             },
             {
+              "id": "limits",
+              "type": "block",
+              "content": {
+                "mod": "annunciator",
+                "props": {
+                  "role": "limits"
+                }
+              },
+              "size": {
+                "px": 53
+              },
+              "min": 37
+            },
+            {
               "id": "procs",
               "type": "block",
               "content": {

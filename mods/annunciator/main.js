@@ -1,6 +1,6 @@
 // annunciator — one dense, terminal-like pane of glass over every agent and the machine.
 // One mod, several regions: the layout gives each block a `role` prop
-// (top, roster, events, pane, system, procs, repos, containers, foot, wall, nav).
+// (top, roster, events, pane, system, procs, repos, containers, limits, foot, wall, nav).
 // Grey when normal; blue-grey for structure (rules, headers); amber = needs you, red = error, green = done (unseen). Focus has no hue: it is a heavier rule, a neutral tint or an underline.
 
 import { View, div } from "gpui-kit";
@@ -9,7 +9,7 @@ import { props, run, panes, agents, focused, keys, window, setAgentOrder, termin
 import {
   store, roster, trackEvents, noteLevel, level, LIMITS, RANK, shortPath,
   probeSystem, probeSensors, probeDf, probePs, probeCore, probeRepos, probeScreen, treeUsage, ownerOf,
-  probeContainers, probeDockerStats,
+  probeContainers, probeDockerStats, probeLimits,
 } from "./data.js";
 import {
   FONT, SIZE, ROW, CH, palette, cell, row, header, title, toggle, spark, bar,
@@ -50,7 +50,7 @@ const REPO_COLS = [
   { k: "path", w: "rest", min: 10, drop: 1 },
 ];
 
-const ROLES = ["top", "roster", "events", "pane", "system", "procs", "repos", "foot", "wall", "containers", "nav"];
+const ROLES = ["top", "roster", "events", "pane", "system", "procs", "repos", "foot", "wall", "containers", "nav", "limits"];
 
 // Roster columns, in display order. `drop`: lower goes first when space runs out.
 const COLS = [
@@ -105,6 +105,7 @@ export default class Annunciator extends View {
         cx.notify();
       }));
     }
+    if (this.role === "limits") every(10000, (cx) => cx.spawn(async (cx) => { await probeLimits(); cx.notify(); }));
     if (this.role === "procs") every(5000, (cx) => cx.spawn(async (cx) => { await probePs(); cx.notify(); }));
     if (this.role === "repos") {
       every(30000, (cx) => cx.spawn(async (cx) => {
@@ -136,7 +137,7 @@ export default class Annunciator extends View {
       // Without one (annunciator-narrow) the top bar is where offending metrics show up.
       let last = "";
       every(5000, (cx) => cx.spawn(async (cx) => {
-        await Promise.all([probeSystem(), probeSensors(), probeDf()]);
+        await Promise.all([probeSystem(), probeSensors(), probeDf(), probeLimits()]);
         const now = JSON.stringify(levels());
         if (now !== last) { last = now; cx.notify(); }
       }));
@@ -612,11 +613,43 @@ export default class Annunciator extends View {
       line("net", "net", s?.rx != null ? `↓ ${bytes(s.rx)}/s ↑ ${bytes(s.tx)}/s` : "…", spark(store.hist.net, graphW), "ok"),
       line("ifs", "links", (s?.ifs ?? []).join(" ") || "—", "", "ok"),
     ];
-    const worst = Object.values(lvl).includes("crit") ? "crit" : Object.values(lvl).includes("warn") ? "warn" : "ok";
-    const summary = worst === "ok" ? "all normal" : Object.entries(lvl).filter(([, l]) => l !== "ok").map(([k]) => offenderText(k)).join(" · ");
+    // The header sums up the machine; Claude limits have their own panel.
+    const mine = Object.entries(lvl).filter(([k]) => !k.startsWith("claude_"));
+    const worst = mine.some(([, l]) => l === "crit") ? "crit" : mine.some(([, l]) => l === "warn") ? "warn" : "ok";
+    const summary = worst === "ok" ? "all normal" : mine.filter(([, l]) => l !== "ok").map(([k]) => offenderText(k)).join(" · ");
     return v_flex().size_full().min_h(0)
       .child(title("t-sys", "SYSTEM", [div().text_color(levelColor(c, worst) ?? c.dim).child(summary)], div().text_color(c.dim).child(s ? `${clock(s.at)}` : "")))
       .child(v_flex().id("sy-list").flex_1().min_h(0).overflow_y_scrollbar().children(rows));
+  }
+
+  // ── limits: Claude plan usage windows and when they reset ─────────────────
+  limits(c) {
+    const L = store.limits;
+    const now = Date.now();
+    const lvl = levels();
+    const chars = Math.floor((this.size.width || 600) / CH) - 3;
+    const WIN = 9, USED = 5, RESETS = 9, IN = 8;
+    const barW = Math.max(6, Math.min(60, chars - WIN - USED - RESETS - IN - 4));
+    const at = (ms) => (ms - now < 86400000 ? clock(ms, false) : `${DAYS[new Date(ms).getDay()]} ${clock(ms, false)}`);
+    const lines = (L?.windows ?? []).map((w) => {
+      const gone = w.resets != null && w.resets <= now; // the window reset since this reading
+      const l = gone ? "ok" : lvl[`claude_${w.key}`] ?? "ok";
+      const col = levelColor(c, l) ?? c.fg;
+      return row(`lm-${w.key}`, [
+        cell(w.label, WIN, { color: c.dim }),
+        cell(gone ? "—" : pct(w.pct), USED, { right: true, color: col, bold: l !== "ok" }),
+        cell(gone ? "" : bar(w.pct / 100, barW), barW, { color: l === "ok" ? c.muted : col, blank: true }),
+        cell(w.resets == null ? "" : gone ? "reset" : at(w.resets), RESETS, { right: true, color: c.fg }),
+        cell(w.resets == null || gone ? "" : `in ${ago(w.resets - now)}`, IN, { right: true, color: c.dim }),
+      ]);
+    });
+    this.fitHeight("limits", Math.max(1, lines.length), false);
+    const empty = L === undefined ? "reading…" : "no reading yet: Claude Code's status line saves one (see README)";
+    return v_flex().size_full().min_h(0)
+      .child(title("t-limits", "CLAUDE LIMITS", L?.at ? [`read ${ago(now - L.at)} ago`] : []))
+      .child(v_flex().id("lm-list").flex_1().min_h(0)
+        .when(lines.length === 0, (el) => el.child(div().px(CH).text_color(c.dim).child(empty)))
+        .children(lines));
   }
 
   // ── processes: top by cpu, with the agent that started them ──────────────
@@ -818,7 +851,19 @@ function levels() {
     cpuTemp: noteLevel("cpuTemp", "cpu temp 1 min avg", tp.cpuAvg, deg),
     gpuMem: noteLevel("gpuMem", "gpu memory", g && g.memTotal ? (100 * g.memUsed) / g.memTotal : null, pct),
     disk: noteLevel("disk", "disk /", d?.pct, pct),
+    ...claudeLevels(),
   };
+}
+
+// One level per Claude usage window, keyed claude_<window>; a window that has reset since
+// the last reading counts as ok.
+function claudeLevels() {
+  const out = {};
+  for (const w of store.limits?.windows ?? []) {
+    const gone = w.resets != null && w.resets <= Date.now();
+    out[`claude_${w.key}`] = noteLevel(`claude_${w.key}`, `claude ${w.label}`, gone ? null : w.pct, pct, "claude");
+  }
+  return out;
 }
 
 function offenderText(k) {
@@ -832,11 +877,16 @@ function offenderText(k) {
     case "cpuTemp": return `cpu ${deg(tp.cpuAvg)} 1 min`;
     case "gpuMem": return `gpu memory ${g?.memTotal ? pct((100 * g.memUsed) / g.memTotal) : "—"}`;
     case "disk": return `disk ${d ? d.pct + "%" : "—"}`;
-    default: return k;
+    default: {
+      const w = k.startsWith("claude_") && store.limits?.windows?.find((x) => `claude_${x.key}` === k);
+      return w ? `claude ${w.label} ${pct(w.pct)}` : k;
+    }
   }
 }
 
 const eventsMark = () => `${store.events.length}:${store.events[0]?.at ?? 0}`;
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const f1 = (v) => (v == null ? "—" : v.toFixed(1));
 

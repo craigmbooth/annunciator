@@ -24,6 +24,7 @@ web                                                                             
 | **Events** | Every agent state change, system threshold crossed and container state change, newest first. |
 | **Repos** | One row per git repo the terminals are in: branch, dirty, ahead, behind, agents. |
 | **Containers** | Docker. Containers that are restarting, unhealthy or recently failed come first, in red. Healthy ones fold into one row per compose project. |
+| **Claude limits** | Each Claude plan usage window (5 hour, 7 day) with % used, a bar, when it resets and how long until then. Amber at 80%, red at 95%. |
 | **Processes** | Top 8 by CPU, each with the agent that started it. |
 | **Top bar** | Only what needs you or has errored, plus machine warnings. Empty when all is calm. |
 | **Bottom bar** | Key hints. |
@@ -62,6 +63,14 @@ Requires the Herdr desktop app on **Linux**. The system panel reads `/proc` and 
    herdr-app do layout.switch '{"name":"annunciator"}'
    ```
    `herdr-app status` should show `"errors": []`.
+4. **Claude limits (optional):** Claude Code passes your plan's usage windows to its status line command as JSON on stdin (`rate_limits`). Add this to your status line script (`statusLine` in `~/.claude/settings.json`) so it saves just that part for the panel. It needs `jq`. If your script already reads stdin, pipe that same JSON through the `jq` line instead.
+   ```sh
+   limits="$HOME/.cache/annunciator/claude-limits.json"
+   mkdir -p "${limits%/*}"
+   jq -c 'select(.rate_limits != null) | {at: now, rate_limits}' 2>/dev/null >"$limits.tmp" \
+     && [ -s "$limits.tmp" ] && mv "$limits.tmp" "$limits" || rm -f "$limits.tmp"
+   ```
+   The reading is as fresh as the last time a Claude Code session refreshed its status line; the panel title says how old it is.
 
 **Settings** are in `~/.config/herdr-app/mods/annunciator/config.json`. Saving it reloads the mod.
 
@@ -89,7 +98,7 @@ Mods are trusted code in Herdr, so here is everything this one does outside Herd
   - `docker ps`, `docker inspect` and `docker stats --no-stream`
   - `hc get` and `hc read` (Herdr's own core: agent timing, and the last line of a blocked agent's screen)
 - **Network:** none.
-- **Files:** reads `/proc` and `/sys`, and writes nothing outside Herdr's per-mod storage.
+- **Files:** reads `/proc`, `/sys` and `~/.cache/annunciator/claude-limits.json` (written by your status line, see Install), and writes nothing outside Herdr's per-mod storage.
 - **Actions:** clicks only navigate, create or reorder (focus a pane, select a space, new tab, new space, drag a tab or space to a new position). There are no kill, stop, restart or close buttons.
 
 Agent Wall uses only Herdr's API.

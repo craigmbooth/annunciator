@@ -34,6 +34,7 @@ root column (look: Berkeley Mono 12, titlebar none, colors below)
       events      (annunciator:events)      weight 1: takes what's left
       repos       (annunciator:repos)       fits, cap 8
       containers  (annunciator:containers)  fits, cap 10
+      limits      (annunciator:limits)      fits its windows
       procs       (annunciator:procs)       top 8 by cpu
   foot 20px (annunciator:foot)
 ```
@@ -50,6 +51,7 @@ The `px` sizes in the file change at runtime. Regions call `layout.resize` to fi
 | `system` | Label/value table in TR-100 style: cpu, cores, load, pressure, memory, swap, GPU (NVIDIA, through `nvidia-smi`), temperatures, disk, disk and network I/O, with bars and sparklines | `/proc`, hwmon, `nvidia-smi`, `df`, every 2 s | — |
 | `repos` | One row per git repo the terminals are in: branch, dirty, ahead, behind, number of agents, path | `git status --porcelain=v2`, every 30 s | — |
 | `containers` | Docker. Problems first, one row each: restarting or unhealthy (red, with a bar), or failed in the last 24 h. Healthy containers fold into one row per compose project (`+ myproject ×6`) and unfold on click. Stopped containers are only counted in the title. | `docker inspect` every 10 s; `docker stats` every 15 s | A project row unfolds or folds; a container row selects the space working in that project's folder |
+| `limits` | **Claude limits.** One row per plan usage window (`5 hour`, `7 day`, and a spend limit when the payload has one): % used, bar, reset time (weekday when over a day away), time until it resets. Amber at 80%, red at 95% (`LIMITS.claude`), with an event and a top-bar entry per window. A window whose reset has passed shows `—` and `reset` until a new reading. Title: how old the reading is. | `~/.cache/annunciator/claude-limits.json`, every 10 s. The user's Claude Code status line script writes it from the `rate_limits` field of its stdin payload (see the root README, Install step 4); nothing reads credentials | — |
 | `procs` | Top 8 processes by CPU, with the agent that started each (found by walking parent pids) | `/proc/*/stat` deltas, every 5 s | — |
 | `foot` | Key hints in plain words, the layout name, counts | `keys()` | — |
 | `wall` | Two-line header over each column of Agent Wall: glyph, n/N, task, where, agent, folder, branch, time in state; then what the agent is doing | Same as roster, every 5 s | Focuses that terminal |
@@ -187,6 +189,5 @@ A failed read never blanks the panel. The last good list stays up, and after thr
 - **Ideas not yet built:**
   - a read-only listening-ports panel, attributing each port to an agent
   - PR and checks columns on REPOS (via `gh`, which reaches GitHub)
-  - a Claude usage-limits line, without reading credentials
   - a recent-commits panel
   - a context-size column in the agent list

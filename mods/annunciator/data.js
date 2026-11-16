@@ -2,7 +2,7 @@
 // Module scope is shared by every copy of this mod: probes run once per interval
 // no matter how many regions ask (see `fresh`). No host calls at module top level.
 
-import { exec, hc, agents, panes, terminals, spaces, home } from "herdr";
+import { exec, hc, agents, panes, terminals, spaces, home, readTextFile } from "herdr";
 
 // ── shared cache ────────────────────────────────────────────────────────────
 export const store = {
@@ -55,6 +55,8 @@ export const LIMITS = {
   // the 90s under load, so it warns only when it stays hot.
   cpu: [90, 98], mem: [80, 90], swap: [2, 20], disk: [90, 95],
   psiMem: [10, 25], cpuTemp: [95, 100], gpuMem: [85, 95], load: [16, 20],
+  // every Claude usage window (5 hour, 7 day, …), as % used
+  claude: [80, 95],
 };
 export const level = (key, v) => {
   const l = LIMITS[key];
@@ -181,6 +183,31 @@ export function probeSensors() {
     if (temps.cpu != null) push(store.hist.temp, temps.cpu);
     temps.cpuAvg = mean(store.hist.temp.slice(-12)); // 12 × 5 s = 1 min
     store.temps = temps;
+  });
+}
+
+// ── Claude usage limits every 10 s ──────────────────────────────────────────
+// Claude Code hands its status line command the plan's usage windows (rate_limits); the
+// status line script saves just that part here. Nothing reads credentials.
+export const LIMITS_FILE = ".cache/annunciator/claude-limits.json";
+const WINDOW_NAMES = { five_hour: "5 hour", seven_day: "7 day", spend_limit: "spend" };
+const when = (v) => (v == null ? null : typeof v === "number" ? v * 1000 : Date.parse(v) || null);
+
+export function probeLimits() {
+  return fresh("limits", 9800, async () => {
+    const text = await readTextFile(`${home()}/${LIMITS_FILE}`);
+    if (!text) { store.limits = null; return; }
+    const d = JSON.parse(text);
+    const windows = [];
+    for (const [key, v] of Object.entries(d.rate_limits ?? {})) {
+      if (!v || typeof v !== "object") continue;
+      const label = WINDOW_NAMES[key] ?? key.replace(/_/g, " ");
+      if (v.used_percentage != null) windows.push({ key, label, pct: Number(v.used_percentage), resets: when(v.resets_at) });
+      else if (v.used_usd != null && v.limit_usd) {
+        windows.push({ key, label: v.period ? `${label} ${v.period}` : label, pct: (100 * v.used_usd) / v.limit_usd, resets: when(v.resets_at) });
+      }
+    }
+    store.limits = { at: when(d.at), windows };
   });
 }
 
@@ -522,8 +549,8 @@ export function addEvent(e) {
 }
 
 // Metric crossing a threshold → an event (only on change of level).
-export function noteLevel(key, label, v, fmt) {
-  const l = level(key, v);
+export function noteLevel(key, label, v, fmt, limitKey = key) {
+  const l = level(limitKey, v);
   const prev = store.levels[key];
   store.levels[key] = l;
   if (prev && prev !== l) addEvent({ at: Date.now(), where: "system", from: prev, to: l, detail: `${label} ${fmt(v)}`, system: true });
