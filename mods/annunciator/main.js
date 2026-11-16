@@ -61,7 +61,6 @@ const COLS = [
   { k: "age", w: 6, right: true, drop: 1 },
   { k: "cpu", w: 5, right: true, drop: 91 },
   { k: "mem", w: 6, right: true, drop: 6 },
-  { k: "activity", w: 16, drop: 7 },
   { k: "doing", w: "rest", min: 24, drop: 99 },
 ];
 
@@ -439,7 +438,6 @@ export default class Annunciator extends View {
       subs: [r.subs || null, { color: c.muted }],
       cpu: [hasUsage ? pct(usage.cpu) : null, { color: hot ? c.fg : c.dim }],
       mem: [hasUsage ? bytes(usage.rss) : null, { color: c.muted }],
-      activity: [spark(store.cpuHist[r.address] ?? [], 16, 100), { color: c.muted }],
       doing: [doing, { color: r.status === "blocked" ? c.amber : c.muted }],
     };
     const g = glyph(c, r.status, `g-${r.address}`);

@@ -5,20 +5,20 @@ A single-screen dashboard for the [Herdr](https://herdr.dev) desktop app. It sho
 The look follows U.S. Graphics Company's machine reports, *tabular, short, clear and concise*, without their aerospace branding. The rules are in [DESIGN.md](DESIGN.md).
 
 ```
-AGENTS  3 spaces · 3 agents                                                  faults only  by urgency  new space
-     task                               branch                for   age  cpu   mem  activity  doing
-api                                     main                                                              +
-├─ 1 ■  Migrate the billing tables                            12m   2h04  0%  310M  ▁▁▁       Run the migration? (y/n)
+AGENTS  3 spaces · 3 agents                                        faults only  by urgency  new space
+     task                               branch                for   age  cpu   mem  doing
+api                                     main                                                    +
+├─ 1 ■  Migrate the billing tables                            12m   2h04  0%  310M  Run the migration? (y/n)
 └─ 2 $  bash  ~/src/api
-web                                                                                                       +
-└─ 1 ▖  Fix the login redirect                                 3m   41m   9%  702M  ▂▅▃       Editing src/auth.ts
+web                                                                                             +
+└─ 1 ▖  Fix the login redirect                                 3m   41m   9%  702M  Editing src/auth.ts
 ```
 
 ## What's on screen
 
 | Region | Shows |
 |---|---|
-| **Agent tree** (above the terminals) | Every space, then every pane in it: `├─ 1` for a tab, `├─ 2.1` for a pane in a split tab. Agents get a full row: state symbol, task, branch, time in state, age, cpu, memory, activity, and what they're doing (or the question they're asking). Shells and other panes get one muted line. Click a row to go to it. Drag a tab's row to reorder tabs within its space, or a space's name line to reorder spaces. `+` opens a tab in that space's folder. |
+| **Agent tree** (above the terminals) | Every space, then every pane in it: `├─ 1` for a tab, `├─ 2.1` for a pane in a split tab. Agents get a full row: state symbol, task, branch, time in state, age, cpu, memory, and what they're doing (or the question they're asking). Shells and other panes get one muted line. Click a row to go to it. Drag a tab's row to reorder tabs within its space, or a space's name line to reorder spaces. `+` opens a tab in that space's folder. |
 | **Terminals** | The shown tab, framed with 1 px rules, without a pane header. |
 | **System** | CPU, cores, load, pressure, memory, swap, NVIDIA GPU, temperatures, disk, disk and network I/O, as a label/value table with bars and sparklines. Holds the clock. |
 | **Events** | Every agent state change, system threshold crossed and container state change, newest first. |

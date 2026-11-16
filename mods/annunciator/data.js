@@ -13,7 +13,6 @@ export const store = {
   temps: null,
   df: null,
   ps: [],             // [{pid, ppid, cpu, mem, rss, etimes, comm}]
-  cpuHist: {},        // address -> [cpu% samples], one per ps poll bucket
   repos: [],          // [{path, repo, branch, dirty, ahead, behind}]
   containers: null,   // null until read; [] when docker answers with none; {error} when it can't
   dstats: {},         // container name -> {cpu, mem} from `docker stats`
@@ -249,11 +248,6 @@ export function probePs() {
     }
     store.psPrev = { at: now, ticks };
     store.ps = out;
-    // Per-agent cpu history: one sample per poll, 16 kept (about 80 s).
-    for (const t of terminals()) {
-      if (t.state !== "live" || !t.foreground?.pid) continue;
-      push(store.cpuHist[t.address] ??= [], treeUsage(t.foreground.pid).cpu, 16);
-    }
   });
 }
 
