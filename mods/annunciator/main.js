@@ -674,12 +674,16 @@ export default class Annunciator extends View {
       // keys() can repeat a modifier ("ctrl-shift-shift-p"); show each once.
       return b ? [...new Set(b.keys.split("-"))].join("+") : null;
     };
+    // alt+up and alt+down share one hint: "alt+up/down  previous/next terminal".
+    const prev = key("annunciator.prev"); const next = key("annunciator.next");
+    const mod = (k) => k.slice(0, k.lastIndexOf("+") + 1);
+    const step = prev && next && mod(prev) === mod(next)
+      ? [[`${prev}/${next.slice(mod(next).length)}`, "previous/next terminal"]]
+      : [[next, "next terminal"], [prev, "previous terminal"]];
     const hints = [
-      ["agent-wall.toggle", "agent wall"], ["annunciator.next", "next terminal"], ["annunciator.prev", "previous terminal"], ["app.palette", "commands"],
-      ["tab.new", "new tab"],
-    ].map(([a, w]) => [key(a), w]).filter(([k]) => k);
+      [key("agent-wall.toggle"), "agent wall"], ...step, [key("app.palette"), "commands"], [key("tab.new"), "new tab"],
+    ].filter(([k]) => k);
     return h_flex().size_full().items_center().gap(CH * 2).px(CH).border_t(1).border_color(c.rule).text_color(c.dim)
-      .child(div().flex_none().text_color(c.muted).child("click a row to go to it"))
       .children(hints.map(([k, w]) => h_flex().flex_none().gap(CH).child(div().text_color(c.muted).child(k)).child(div().child(w))));
   }
 }
