@@ -512,7 +512,7 @@ export default class Annunciator extends View {
       line("load", "load", s ? s.load.map((v) => v.toFixed(2)).join(" ") : "…", s ? `of ${s.cores.length}` : "", lvl.load, c.dim),
       line("psi", "pressure", s ? `cpu ${f1(s.psi.cpu)} io ${f1(s.psi.io)}` : "…", s ? `memory ${f1(s.psi.memory)}` : "", lvl.psiMem, col(lvl.psiMem)),
       line("mem", "memory", s ? `${bytes(s.memUsed)} / ${bytes(s.memTotal)}` : "…", s ? `${bar(memFrac, Math.max(4, graphW - 5))} ${pct(memFrac * 100).padStart(4)}` : "", lvl.mem),
-      line("swap", "swap", s ? `${bytes(s.swapUsed)} / ${bytes(s.swapTotal)}` : "…", s && s.swapTotal ? bar(s.swapUsed / s.swapTotal, Math.max(4, graphW - 5)) : "", lvl.swap),
+      line("swap", "swap", s ? `${bytes(s.swapUsed)} / ${bytes(s.swapTotal)}` : "…", s && s.swapTotal ? `${bar(s.swapUsed / s.swapTotal, Math.max(4, graphW - 12))} in ${bytes(s.swapInAvg ?? 0).padStart(4)}/s` : "", lvl.swap),
       line("gpu", "gpu", g ? `${pct(g.util)}  ${deg(g.temp)}` : "—", g ? spark(store.hist.gpu, graphW, 100) : (g === null ? "no gpu reading" : ""), "ok"),
       line("gpumem", "gpu mem", g ? `${bytes(g.memUsed)} / ${bytes(g.memTotal)}` : "—", g?.memTotal ? bar(g.memUsed / g.memTotal, Math.max(4, graphW - 5)) : "", lvl.gpuMem),
       line("gpupow", "gpu power", g?.power != null ? `${g.power.toFixed(0)} W` : "—", g?.name ?? "", "ok", c.dim),
@@ -691,7 +691,7 @@ function levels() {
   return {
     cpu: noteLevel("cpu", "cpu", s?.cpu, pct),
     mem: noteLevel("mem", "memory", s ? (100 * s.memUsed) / s.memTotal : null, pct),
-    swap: noteLevel("swap", "swap", s && s.swapTotal ? (100 * s.swapUsed) / s.swapTotal : null, pct),
+    swap: noteLevel("swap", "swap-in", s?.swapInAvg != null ? s.swapInAvg / 1048576 : null, (v) => `${bytes(v * 1048576)}/s`),
     psiMem: noteLevel("psiMem", "memory pressure", s?.psi?.memory, (v) => v.toFixed(1)),
     load: noteLevel("load", "load", s?.load?.[0], (v) => v.toFixed(2)),
     cpuTemp: noteLevel("cpuTemp", "cpu temp", tp.cpu, deg),
@@ -705,7 +705,7 @@ function offenderText(k) {
   switch (k) {
     case "cpu": return `cpu ${pct(s?.cpu)}`;
     case "mem": return `memory ${s ? pct((100 * s.memUsed) / s.memTotal) : "—"}`;
-    case "swap": return `swap ${s?.swapTotal ? pct((100 * s.swapUsed) / s.swapTotal) : "—"}`;
+    case "swap": return `swap-in ${s?.swapInAvg != null ? bytes(s.swapInAvg) : "—"}/s`;
     case "psiMem": return `memory pressure ${f1(s?.psi?.memory)}`;
     case "load": return `load ${s?.load?.[0]?.toFixed(2) ?? "—"}`;
     case "cpuTemp": return `cpu ${deg(tp.cpu)}`;

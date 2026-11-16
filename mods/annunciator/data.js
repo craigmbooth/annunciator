@@ -8,7 +8,7 @@ import { exec, hc, agents, panes, terminals, spaces, home } from "herdr";
 export const store = {
   sys: null,          // latest system sample (derived)
   sysPrev: null,      // previous raw counters, for rates
-  hist: { cpu: [], net: [], gpu: [], temp: [], disk: [] },
+  hist: { cpu: [], net: [], gpu: [], temp: [], disk: [], swapIn: [] },
   gpu: null,
   temps: null,
   df: null,
@@ -46,7 +46,10 @@ const push = (arr, v, n = 60) => { arr.push(v); if (arr.length > n) arr.shift();
 
 // ── thresholds (tuned for one workstation: adjust LIMITS for yours) ──────────
 export const LIMITS = {
-  cpu: [70, 90], mem: [80, 90], swap: [85, 95], disk: [90, 95],
+  // swap is judged by swap-in rate (MB/s, 10 s average), not by how full it is:
+  // the kernel parks cold pages in swap and leaves them there, so a full swap
+  // with free RAM is normal. Pages coming back in is what makes things slow.
+  cpu: [70, 90], mem: [80, 90], swap: [2, 20], disk: [90, 95],
   psiMem: [10, 25], cpuTemp: [85, 95], gpuMem: [85, 95], load: [16, 20],
 };
 export const level = (key, v) => {
@@ -62,6 +65,7 @@ const PROC_SCRIPT = [
   "echo @load; cat /proc/loadavg",
   "echo @net; cat /proc/net/dev",
   "echo @disk; cat /proc/diskstats",
+  "echo @vm; grep -E '^pswp(in|out) ' /proc/vmstat",
   "for p in cpu io memory; do echo @psi_$p; cat /proc/pressure/$p 2>/dev/null; done",
 ].join("; ");
 
@@ -74,6 +78,8 @@ function sections(text) {
   }
   return out;
 }
+
+const PAGE = 4096; // /proc/vmstat pswpin/pswpout count pages
 
 const SKIP_IF = /^(lo|docker\d*|br-|veth|virbr|tun|tap)/;
 
@@ -112,7 +118,9 @@ export function probeSystem() {
       const m = (s[`psi_${k}`]?.[0] ?? "").match(/avg10=([\d.]+)/);
       psi[k] = m ? Number(m[1]) : null;
     }
-    Object.assign(raw, { rx, tx, rd, wr });
+    const vm = {};
+    for (const l of s.vm ?? []) { const [k, v] = l.trim().split(/\s+/); if (v) vm[k] = Number(v) * PAGE; }
+    Object.assign(raw, { rx, tx, rd, wr, swin: vm.pswpin ?? 0, swout: vm.pswpout ?? 0 });
     const p = store.sysPrev;
     const pct = (a, b) => (b && a && a.total > b.total ? 100 * (1 - (a.idle - b.idle) / (a.total - b.total)) : null);
     const dt = p ? (now - p.at) / 1000 : null;
@@ -127,12 +135,16 @@ export function probeSystem() {
       memTotal: mem.MemTotal, memUsed: mem.MemTotal - mem.MemAvailable,
       swapTotal: mem.SwapTotal, swapUsed: mem.SwapTotal - mem.SwapFree,
       rx: rate("rx"), tx: rate("tx"), rd: rate("rd"), wr: rate("wr"),
+      swapIn: rate("swin"), swapOut: rate("swout"),
       ifs,
     };
     store.sysPrev = raw;
     if (cpu != null) push(store.hist.cpu, cpu);
     if (sample.rx != null) push(store.hist.net, sample.rx + sample.tx);
     if (sample.rd != null) push(store.hist.disk, sample.rd + sample.wr);
+    if (sample.swapIn != null) push(store.hist.swapIn, sample.swapIn);
+    const recent = store.hist.swapIn.slice(-5);
+    sample.swapInAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : null;
     store.sys = sample;
   });
 }
