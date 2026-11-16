@@ -409,7 +409,7 @@ export default class Annunciator extends View {
     })[0]), { onClick: e.address && !e.address.includes("#") ? () => run("pane.focus", { terminal: e.address }) : null }));
     // The log takes whatever height the side column has left; older entries scroll.
     return v_flex().size_full().min_h(0)
-      .child(title("t-events", "EVENTS", [`${store.events.length} logged`, ...(flood ? [div().text_color(c.amber).child(`· ${recent.length} in 10 min`)] : [])]))
+      .child(title("t-events", "EVENTS", [`${store.events.length} logged`, `· ${recent.length} in 10 min`]))
       .child(header("h-events", fittedHead(cols)))
       .child(v_flex().id("ev-list").flex_1().min_h(0).overflow_y_scrollbar()
         .when(lines.length === 0, (el) => el.child(div().px(CH).text_color(c.dim).child("no changes since start")))
