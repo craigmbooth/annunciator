@@ -28,7 +28,7 @@ const PS_COLS = [
   { k: "cpu", w: 5, right: true },
   { k: "mem", w: 6, right: true, drop: 3 },
   { k: "time", w: 5, right: true, drop: 1 },
-  { k: "agent", w: 14, drop: 4 },
+  { k: "agent", w: 17, drop: 4 },
   { k: "command", w: "rest", min: 12 },
 ];
 const CT_COLS = [
