@@ -1,0 +1,9 @@
+{
+  "global": {
+    "ctrl-shift-a": "agent-wall.toggle",
+    "alt-left": "agent-wall.left",
+    "alt-right": "agent-wall.right",
+    "alt-up": "annunciator.prev",
+    "alt-down": "annunciator.next"
+  }
+}
