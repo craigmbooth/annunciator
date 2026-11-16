@@ -16,6 +16,7 @@ The full design rules, with reasons, are in `DESIGN.md` at the root of this repo
 | `mods/annunciator/main.js` | One mod drawing every region. The layout picks a region with `props.role`. |
 | `mods/annunciator/data.js` | Shared state and probes: Herdr state joined into rows, plus `/proc`, `nvidia-smi`, `df`, `git` and `docker`. Module scope is shared by every copy of the mod, so each probe runs once per interval (`fresh(key, ms, fn)`). |
 | `mods/annunciator/ui.js` | Drawing kit: `palette()`, `cell`, `row`, `header`, `title`, `toggle`, `glyph`, `stateBar`, `fit`/`fitted`, plus formatters (`bytes`, `pct`, `ago`, `clock`). |
+| `mods/annunciator/config.json` | Settings. `temperature`: `"F"` or `"C"`, display only (`deg()` in `ui.js`; `LIMITS` stay in °C). Read once per load by `loadConfig()`; saving it reloads the mod. |
 | `mods/annunciator/wall.js` | Agent Wall (MIT, by Víctor Falcón, github.com/victor-falcon/herdr-mods, commit 2f0a242), rewritten and vendored into annunciator. Keep `LICENSE-agent-wall` next to it. |
 | `keys.json` | `alt-up` and `alt-down` → `annunciator.prev` and `annunciator.next`: step through every row of the agent tree, shells and mod panes included, in the order shown, wrapping at the ends. Only the `roster` copy listens, so the keys do nothing where the tree isn't shown (on the wall). `ctrl-shift-a` → `annunciator.wall`. `alt-left` and `alt-right` → `annunciator.left` and `annunciator.right`; outside the wall they fall back to `pane.go`. The `nav` copy takes these three. |
 

@@ -13,7 +13,7 @@ import {
 } from "./data.js";
 import {
   FONT, SIZE, ROW, CH, palette, cell, row, header, title, toggle, spark, bar,
-  bytes, pct, deg, ago, clock, WORD, GLYPH, stateColor, stateBar, glyph, levelColor, fit, fitted, fittedHead,
+  bytes, pct, deg, ago, clock, WORD, GLYPH, stateColor, stateBar, glyph, levelColor, fit, fitted, fittedHead, loadConfig,
 } from "./ui.js";
 import { wallCommand } from "./wall.js";
 
@@ -69,6 +69,8 @@ export default class Annunciator extends View {
   init(_p, cx) {
     const role = props()?.role ?? _p?.role;
     this.role = ROLES.includes(role) ? role : "roster";
+    // config.json (temperature unit) is read once per load; redraw when it lands.
+    cx.spawn(async (cx) => { await loadConfig(); cx.notify(); });
     this.size = { width: 0, height: 0 };
     this.prefs = load("prefs", { faults: false, sort: "order", folded: [] });
     this.folded = new Set(this.prefs.folded);

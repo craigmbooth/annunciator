@@ -2,7 +2,18 @@
 
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { theme } from "herdr";
+import { theme, appHome, readTextFile } from "herdr";
+
+// ── settings: config.json next to this file. Saving it reloads the mod. ─────
+// temperature: "C" or "F" (display only; thresholds stay in °C).
+export const config = { temperature: "C" };
+let configLoad = null;
+export function loadConfig() {
+  if (!configLoad) configLoad = readTextFile(`${appHome()}/mods/annunciator/config.json`)
+    .then((text) => { if (text) Object.assign(config, JSON.parse(text)); })
+    .catch(() => { /* missing or broken: keep the defaults */ });
+  return configLoad;
+}
 
 export const FONT = "Berkeley Mono";
 export const SIZE = 12;      // px, every piece of text
@@ -99,7 +110,10 @@ export function bytes(n, digits = 1) {
   return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(digits)}${u[i]}`;
 }
 export const pct = (v) => (v == null || isNaN(v) ? "—" : `${Math.round(v)}%`);
-export const deg = (v) => (v == null ? "—" : `${Math.round(v)}°`);
+export const deg = (v) => {
+  if (v == null) return "—";
+  return /^f/i.test(config.temperature) ? `${Math.round((v * 9) / 5 + 32)}°F` : `${Math.round(v)}°C`;
+};
 
 export function ago(ms) {
   if (ms == null || ms < 0) return "—";

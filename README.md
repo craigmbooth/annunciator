@@ -63,6 +63,12 @@ Requires the Herdr desktop app on **Linux**. The system panel reads `/proc` and 
    ```
    `herdr-app status` should show `"errors": []`.
 
+**Settings** are in `~/.config/herdr-app/mods/annunciator/config.json`. Saving it reloads the mod.
+
+| Setting | Values |
+|---|---|
+| `temperature` | `"F"` or `"C"`: the unit temperatures are shown in. Thresholds are set in °C either way. |
+
 ## Keys
 
 | Key | Does |
