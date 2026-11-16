@@ -43,23 +43,24 @@ The starting point is U.S. Graphics Company's own description of its TR-100 mach
 
 ## 4. Color has meaning
 
-**Rule.** A color appears only when it answers a question. Everything else is grey.
+**Rule.** Every color is a call to act. If you wouldn't do anything about it, it's grey, however true or interesting it is.
 
 | Color | Hex | Means | Never used for |
 |---|---|---|---|
-| Amber | `#ffb700` | **Needs you**: an agent is waiting on a person | warnings about the machine you can ignore |
-| Red | `#ff4136` | **Error**: something failed or is failing (an agent errored, a container is restarting or unhealthy, a metric is critical) | emphasis, deleting, closing |
-| Green | `#3fbf74` | **Done, not yet seen**: finished work you haven't looked at | "OK", healthy, running |
+| Amber | `#ffb700` | **Needs you**: an agent is waiting on a person, or a reading is nearing its limit | history, machine warnings you can ignore |
+| Red | `#ff4136` | **Error**: something failed or is failing (an agent errored, a container is restarting or unhealthy, a metric is critical) | history, emphasis, deleting, closing |
+| Green | `#3fbf74` | **Done, not yet seen**: finished work waiting for you to read it | "OK", healthy, running, history |
 | Blue-grey | `#2b3442` lines, `#8494a8` header text, `#465263` header rule | **Structure**: dividers, rules, region names, column headers | data, focus, state |
 
 The tests:
 
 - **Remove the hue.** The screen must still work, because shape, position and weight carry the same message (see 7).
-- **Add a hue.** It must name a state from the table above. If it doesn't, it's decoration, so take it out.
+- **Add a hue.** It must name a state from the table above, and there must be something you can do about it now. If either fails, it's decoration, so take it out.
+- **Records are grey.** A log or history tells you what happened, not what to do, so it has no color, even for an error. The live panels color the fault while it lasts.
 - **Healthy is grey.** Running, idle and OK make no noise. Only change from normal gets color.
-- **Color the change, not the row.** In the event log, only the word for the new state is colored, and only when it is a fault (red, or amber for an agent waiting on you): the log is a record, so a warning or a finished turn stays plain. In a table, the state word, the 3 px bar on the left and the count in the title are colored, and the rest of the row stays grey.
+- **Color the state, not the row.** In a table, the state word, the 3 px bar on the left and the count in the title are colored, and the rest of the row stays grey.
 
-**Why.** If color is rare, you see it from across the room. A palette used for decoration or branding trains you to ignore it.
+**Why.** If color is rare, you see it from across the room. If every color means "act", you never have to stop and ask whether this one does. A palette used for decoration, branding or history trains you to ignore it.
 
 ## 5. Grey is a ladder with three steps
 
@@ -197,7 +198,7 @@ Use only glyphs Berkeley Mono contains. It has `─ ├ └ │ ┬ ■ • · �
 1. Does it show something not already on screen? (10)
 2. Is every column a fixed width in characters, with a drop order? (2)
 3. Is it grey when everything is fine? (4, 8)
-4. Does every color name a state from the table, and is that color only on the state word, the left bar and the title count? (4)
+4. Does every color name a state from the table that you can act on now, and is that color only on the state word, the left bar and the title count? (4)
 5. Is focus shown without hue? (6)
 6. Do problems sort to the top, and do healthy things collapse? (8)
 7. Is there a time in state? (9)

@@ -485,12 +485,10 @@ export default class Annunciator extends View {
     const now = Date.now();
     const recent = store.events.filter((e) => now - e.at < 600000);
     const shown = store.events.slice(0, 200);
-    // The log is a record, not a call to act: a warning and a finished turn read in plain text.
-    const colorOf = (e) => {
-      if (e.tone) return c[e.tone];
-      if (e.system) return e.to === "warn" ? c.fg : levelColor(c, e.to) ?? c.muted;
-      return e.to === "done" ? c.fg : stateColor(c, e.to);
-    };
+    // The log is a record, not a call to act, so it has no color (DESIGN.md 4): a change into
+    // trouble reads in the foreground, a return to calm in muted grey.
+    const trouble = (e) => (e.system ? e.tone || e.to === "warn" || e.to === "crit" : e.to === "blocked" || e.to === "error");
+    const colorOf = (e) => (trouble(e) ? c.fg : c.muted);
     const cols = fit(EV_COLS, this.size.width);
     const change = (e) => h_flex().flex_none().w(cols.find((x) => x.k === "change").w * CH).overflow_hidden().whitespace_nowrap()
       .child(div().text_color(c.dim).child(`${e.system ? e.from : WORD[e.from] ?? e.from} → `))
