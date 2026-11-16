@@ -402,11 +402,8 @@ export default class Annunciator extends View {
     trackEvents(roster());
     if (store.events.length !== this.saved) { save("events2", store.events.slice(0, 500)); this.saved = store.events.length; }
     const now = Date.now();
-    // Flood control: more than 10 in 10 minutes collapses the older ones into a count.
     const recent = store.events.filter((e) => now - e.at < 600000);
-    const flood = recent.length > 10;
-    const shown = flood ? store.events.slice(0, 10) : store.events.slice(0, 200);
-    const hidden = flood ? recent.length - 10 : 0;
+    const shown = store.events.slice(0, 200);
     const colorOf = (e) => (e.tone ? c[e.tone] : e.system ? levelColor(c, e.to) ?? c.muted : stateColor(c, e.to));
     const cols = fit(EV_COLS, this.size.width);
     const change = (e) => h_flex().flex_none().w(cols.find((x) => x.k === "change").w * CH).overflow_hidden().whitespace_nowrap()
@@ -417,14 +414,14 @@ export default class Annunciator extends View {
       where: [e.where, { color: c.muted }],
       detail: [e.detail, { color: c.muted, blank: true }],
     })[0]), { onClick: e.address && !e.address.includes("#") ? () => run("pane.focus", { terminal: e.address }) : null }));
-    // The log takes whatever height the side column has left; older entries scroll.
+    // The log takes whatever height the side column has left; older entries scroll. It is the
+    // side column's only flexible panel (weight 1 in the layouts), so it gives up height first.
     return v_flex().size_full().min_h(0)
       .child(title("t-events", "EVENTS", [`${store.events.length} logged`, `· ${recent.length} in 10 min`]))
       .child(header("h-events", fittedHead(cols)))
       .child(v_flex().id("ev-list").flex_1().min_h(0).overflow_y_scrollbar()
         .when(lines.length === 0, (el) => el.child(div().px(CH).text_color(c.dim).child("no changes since start")))
-        .children(lines)
-        .when(hidden > 0, (el) => el.child(row("ev-more", [cell("", 8, { blank: true }), cell(`… ${hidden} more in the last 10 minutes`, "rest", { color: c.dim })]))));
+        .children(lines));
   }
 
   // ── pane header: one line per pane ────────────────────────────────────────

@@ -107,7 +107,7 @@ Use only glyphs Berkeley Mono contains. It has `─ ├ └ │ ┬ ■ • · �
 **Rule.** Problems get their own rows at the top. Healthy things get a count or one summary row.
 
 - Containers: each restarting, unhealthy or recently failed container gets its own row. Healthy ones fold into one row per project.
-- The event log: past 10 changes in 10 minutes, the older ones collapse into one count line.
+- The event log: it fills whatever height is left and older entries scroll, so a busy hour shows more, not a count. The title says how many happened in the last 10 minutes, in grey: activity, not a fault.
 - `faults only` hides everything calm, and `by urgency` sorts what needs you to the top.
 - Stopped containers, idle states and zero counts appear only as numbers in a title.
 
