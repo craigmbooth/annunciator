@@ -129,7 +129,7 @@ export default class Annunciator extends View {
     if (this.role === "events") {
       // Restore the log once per app run; the shared store holds it after that.
       if (!store.events.length) for (const e of load("events2", [])) store.events.push(e);
-      this.saved = store.events.length;
+      this.saved = eventsMark();
     }
     if (this.role === "top") {
       // Probes are shared: with a system panel shown this costs nothing extra.
@@ -400,7 +400,8 @@ export default class Annunciator extends View {
   // ── events: every state change and threshold crossing, newest first ──────
   events(c) {
     trackEvents(roster());
-    if (store.events.length !== this.saved) { save("events2", store.events.slice(0, 500)); this.saved = store.events.length; }
+    // Save when the newest event changes: the log is capped at 500, so its length stops changing.
+    if (eventsMark() !== this.saved) { save("events2", store.events.slice(0, 500)); this.saved = eventsMark(); }
     const now = Date.now();
     const recent = store.events.filter((e) => now - e.at < 600000);
     const shown = store.events.slice(0, 200);
@@ -725,6 +726,8 @@ function offenderText(k) {
     default: return k;
   }
 }
+
+const eventsMark = () => `${store.events.length}:${store.events[0]?.at ?? 0}`;
 
 const f1 = (v) => (v == null ? "—" : v.toFixed(1));
 
