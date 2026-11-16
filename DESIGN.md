@@ -57,7 +57,7 @@ The tests:
 - **Remove the hue.** The screen must still work, because shape, position and weight carry the same message (see 7).
 - **Add a hue.** It must name a state from the table above. If it doesn't, it's decoration, so take it out.
 - **Healthy is grey.** Running, idle and OK make no noise. Only change from normal gets color.
-- **Color the change, not the row.** In the event log, only the word for the new state is colored. In a table, the state word, the 3 px bar on the left and the count in the title are colored, and the rest of the row stays grey.
+- **Color the change, not the row.** In the event log, only the word for the new state is colored, and only when it is a fault (red, or amber for an agent waiting on you): the log is a record, so a warning or a finished turn stays plain. In a table, the state word, the 3 px bar on the left and the count in the title are colored, and the rest of the row stays grey.
 
 **Why.** If color is rare, you see it from across the room. A palette used for decoration or branding trains you to ignore it.
 
