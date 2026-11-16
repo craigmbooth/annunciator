@@ -43,14 +43,18 @@ export async function fresh(key, ms, fetch) {
 }
 
 const push = (arr, v, n = 60) => { arr.push(v); if (arr.length > n) arr.shift(); };
+const mean = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
 
 // ── thresholds (tuned for one workstation: adjust LIMITS for yours) ──────────
 export const LIMITS = {
   // swap is judged by swap-in rate (MB/s, 10 s average), not by how full it is:
   // the kernel parks cold pages in swap and leaves them there, so a full swap
   // with free RAM is normal. Pages coming back in is what makes things slow.
-  cpu: [70, 90], mem: [80, 90], swap: [2, 20], disk: [90, 95],
-  psiMem: [10, 25], cpuTemp: [85, 95], gpuMem: [85, 95], load: [16, 20],
+  // cpu and cpuTemp are judged on a 1-minute average (cpuAvg, cpuTemp avg), so a burst of
+  // work doesn't trip them. This CPU calls 85 °C "high" and 105 °C critical, and runs in
+  // the 90s under load, so it warns only when it stays hot.
+  cpu: [90, 98], mem: [80, 90], swap: [2, 20], disk: [90, 95],
+  psiMem: [10, 25], cpuTemp: [95, 100], gpuMem: [85, 95], load: [16, 20],
 };
 export const level = (key, v) => {
   const l = LIMITS[key];
@@ -140,6 +144,7 @@ export function probeSystem() {
     };
     store.sysPrev = raw;
     if (cpu != null) push(store.hist.cpu, cpu);
+    sample.cpuAvg = mean(store.hist.cpu.slice(-30)); // 30 × 2 s = 1 min
     if (sample.rx != null) push(store.hist.net, sample.rx + sample.tx);
     if (sample.rd != null) push(store.hist.disk, sample.rd + sample.wr);
     if (sample.swapIn != null) push(store.hist.swapIn, sample.swapIn);
@@ -173,8 +178,9 @@ export function probeSensors() {
       if (name === "k10temp" && temps.cpu == null) temps.cpu = c;
       if (name === "nvme" && temps.nvme == null) temps.nvme = c;
     }
-    store.temps = temps;
     if (temps.cpu != null) push(store.hist.temp, temps.cpu);
+    temps.cpuAvg = mean(store.hist.temp.slice(-12)); // 12 × 5 s = 1 min
+    store.temps = temps;
   });
 }
 

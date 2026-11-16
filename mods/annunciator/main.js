@@ -701,12 +701,12 @@ const hasNode = (n, id) => Boolean(n && (n.id === id || (n.children ?? []).some(
 function levels() {
   const s = store.sys; const g = store.gpu; const tp = store.temps ?? {}; const d = store.df;
   return {
-    cpu: noteLevel("cpu", "cpu", s?.cpu, pct),
+    cpu: noteLevel("cpu", "cpu 1 min avg", s?.cpuAvg, pct),
     mem: noteLevel("mem", "memory", s ? (100 * s.memUsed) / s.memTotal : null, pct),
     swap: noteLevel("swap", "swap-in", s?.swapInAvg != null ? s.swapInAvg / 1048576 : null, (v) => `${bytes(v * 1048576)}/s`),
     psiMem: noteLevel("psiMem", "memory pressure", s?.psi?.memory, (v) => v.toFixed(1)),
     load: noteLevel("load", "load", s?.load?.[0], (v) => v.toFixed(2)),
-    cpuTemp: noteLevel("cpuTemp", "cpu temp", tp.cpu, deg),
+    cpuTemp: noteLevel("cpuTemp", "cpu temp 1 min avg", tp.cpuAvg, deg),
     gpuMem: noteLevel("gpuMem", "gpu memory", g && g.memTotal ? (100 * g.memUsed) / g.memTotal : null, pct),
     disk: noteLevel("disk", "disk /", d?.pct, pct),
   };
@@ -715,12 +715,12 @@ function levels() {
 function offenderText(k) {
   const s = store.sys; const g = store.gpu; const tp = store.temps ?? {}; const d = store.df;
   switch (k) {
-    case "cpu": return `cpu ${pct(s?.cpu)}`;
+    case "cpu": return `cpu ${pct(s?.cpuAvg)} 1 min`;
     case "mem": return `memory ${s ? pct((100 * s.memUsed) / s.memTotal) : "—"}`;
     case "swap": return `swap-in ${s?.swapInAvg != null ? bytes(s.swapInAvg) : "—"}/s`;
     case "psiMem": return `memory pressure ${f1(s?.psi?.memory)}`;
     case "load": return `load ${s?.load?.[0]?.toFixed(2) ?? "—"}`;
-    case "cpuTemp": return `cpu ${deg(tp.cpu)}`;
+    case "cpuTemp": return `cpu ${deg(tp.cpuAvg)} 1 min`;
     case "gpuMem": return `gpu memory ${g?.memTotal ? pct((100 * g.memUsed) / g.memTotal) : "—"}`;
     case "disk": return `disk ${d ? d.pct + "%" : "—"}`;
     default: return k;
