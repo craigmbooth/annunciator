@@ -1,6 +1,6 @@
 // annunciator — one dense, terminal-like pane of glass over every agent and the machine.
 // One mod, several regions: the layout gives each block a `role` prop
-// (top, roster, events, pane, system, procs, repos, containers, foot, wall).
+// (top, roster, events, pane, system, procs, repos, containers, foot, wall, nav).
 // Grey when normal; blue-grey for structure (rules, headers); amber = needs you, red = error, green = done (unseen). Focus has no hue: it is a heavier rule, a neutral tint or an underline.
 
 import { View, div } from "gpui-kit";
@@ -15,6 +15,7 @@ import {
   FONT, SIZE, ROW, CH, palette, cell, row, header, title, toggle, spark, bar,
   bytes, pct, deg, ago, clock, WORD, GLYPH, stateColor, stateBar, glyph, levelColor, fit, fitted, fittedHead,
 } from "./ui.js";
+import { wallCommand } from "./wall.js";
 
 const EV_COLS = [
   { k: "time", w: 8 },
@@ -49,7 +50,7 @@ const REPO_COLS = [
   { k: "path", w: "rest", min: 10, drop: 1 },
 ];
 
-const ROLES = ["top", "roster", "events", "pane", "system", "procs", "repos", "foot", "wall", "containers"];
+const ROLES = ["top", "roster", "events", "pane", "system", "procs", "repos", "foot", "wall", "containers", "nav"];
 
 // Roster columns, in display order. `drop`: lower goes first when space runs out.
 const COLS = [
@@ -150,6 +151,11 @@ export default class Annunciator extends View {
         cx.notify();
       }));
     }
+    // nav: a 0 px copy that takes the agent wall's key commands (wall.js). The layouts keep one
+    // shown at all times, and the wall carries its own, so the keys work on and off the wall.
+    if (this.role === "nav") {
+      cx.spawn(async () => { for (;;) wallCommand(await nextCommand()); });
+    }
   }
 
   savePrefs() {
@@ -164,6 +170,8 @@ export default class Annunciator extends View {
     const body = this[this.role](c, cx);
     return root.child(body);
   }
+
+  nav() { return div(); }
 
   // ── top: who needs you, system offenders, clock (narrow only), window buttons ──
   top(c) {
@@ -681,7 +689,7 @@ export default class Annunciator extends View {
       ? [[`${prev}/${next.slice(mod(next).length)}`, "previous/next terminal"]]
       : [[next, "next terminal"], [prev, "previous terminal"]];
     const hints = [
-      [key("agent-wall.toggle"), "agent wall"], ...step, [key("app.palette"), "commands"], [key("tab.new"), "new tab"],
+      [key("annunciator.wall"), "agent wall"], ...step, [key("app.palette"), "commands"], [key("tab.new"), "new tab"],
     ].filter(([k]) => k);
     return h_flex().size_full().items_center().gap(CH * 2).px(CH).border_t(1).border_color(c.rule).text_color(c.dim)
       .children(hints.map(([k, w]) => h_flex().flex_none().gap(CH).child(div().text_color(c.muted).child(k)).child(div().child(w))));

@@ -16,14 +16,14 @@ The full design rules, with reasons, are in `DESIGN.md` at the root of this repo
 | `mods/annunciator/main.js` | One mod drawing every region. The layout picks a region with `props.role`. |
 | `mods/annunciator/data.js` | Shared state and probes: Herdr state joined into rows, plus `/proc`, `nvidia-smi`, `df`, `git` and `docker`. Module scope is shared by every copy of the mod, so each probe runs once per interval (`fresh(key, ms, fn)`). |
 | `mods/annunciator/ui.js` | Drawing kit: `palette()`, `cell`, `row`, `header`, `title`, `toggle`, `glyph`, `stateBar`, `fit`/`fitted`, plus formatters (`bytes`, `pct`, `ago`, `clock`). |
-| `mods/agent-wall/` | Agent Wall (MIT, by Víctor Falcón, github.com/victor-falcon/herdr-mods, commit 2f0a242), rewritten for annunciator. Keep the LICENSE. |
-| `keys.json` | `alt-up` and `alt-down` → `annunciator.prev` and `annunciator.next`: step through every row of the agent tree, shells and mod panes included, in the order shown, wrapping at the ends. Only the `roster` copy listens, so the keys do nothing where the tree isn't shown (on the wall). `ctrl-shift-a` → `agent-wall.toggle`. `alt-left` and `alt-right` → `agent-wall.left` and `agent-wall.right`; outside the wall they fall back to `pane.go`. |
+| `mods/annunciator/wall.js` | Agent Wall (MIT, by Víctor Falcón, github.com/victor-falcon/herdr-mods, commit 2f0a242), rewritten and vendored into annunciator. Keep `LICENSE-agent-wall` next to it. |
+| `keys.json` | `alt-up` and `alt-down` → `annunciator.prev` and `annunciator.next`: step through every row of the agent tree, shells and mod panes included, in the order shown, wrapping at the ends. Only the `roster` copy listens, so the keys do nothing where the tree isn't shown (on the wall). `ctrl-shift-a` → `annunciator.wall`. `alt-left` and `alt-right` → `annunciator.left` and `annunciator.right`; outside the wall they fall back to `pane.go`. The `nav` copy takes these three. |
 
 ### Layout tree (`annunciator.json`)
 
 ```
 root column (look: Berkeley Mono 12, titlebar none, colors below)
-  top-row row 22px        → top (annunciator:top) + agent-wall-nav (0px, agent-wall {nav:true})
+  top-row row 22px        → top (annunciator:top) + annunciator-nav (0px, annunciator:nav)
   body row (1px dividers)
     left column weight 2, min 480
       roster  (annunciator:roster)  fits its rows, cap 24
@@ -52,6 +52,7 @@ The `px` sizes in the file change at runtime. Regions call `layout.resize` to fi
 | `procs` | Top 8 processes by CPU, with the agent that started each (found by walking parent pids) | `/proc/*/stat` deltas, every 5 s | — |
 | `foot` | Key hints in plain words, the layout name, counts | `keys()` | — |
 | `wall` | Two-line header over each column of Agent Wall: glyph, n/N, task, where, agent, folder, branch, time in state; then what the agent is doing | Same as roster, every 5 s | Focuses that terminal |
+| `nav` | Draws nothing (0 px). Takes the Agent Wall commands `annunciator.wall`, `.left` and `.right` (`wall.js`) | — | — |
 | `pane` | Pane header. **Not used in any layout now** (the agent tree already says everything it did), but kept. | | |
 
 Docker rules (`ctKind()` in data.js), worst first:
@@ -70,7 +71,7 @@ A failed read never blanks the panel. The last good list stays up, and after thr
 - **On** (`ctrl-shift-a`): the whole window becomes one column per running agent, across all spaces, with 1 px dividers. At most 4 columns are visible. Each column is a 34 px `annunciator:wall` header over the agent's live terminal.
 - **Moving:** `alt-left` and `alt-right` move between agents. Moving past either edge slides the view by one.
 - **Off:** the same key restores the saved layout and focuses the agent that was focused on the wall.
-- **How it works:** the original children are kept in shared state (`agent-wall.saved`), so a wall left open survives a restart. The 0 px `agent-wall-nav` block receives the key commands; it must stay in an always-visible place, because `<mod>.<command>` only reaches copies that are shown.
+- **How it works:** `wall.js`. The original children are kept in shared state (`annunciator.wall`), so a wall left open survives a restart. The 0 px `annunciator-nav` block (`annunciator:nav`) receives the key commands, and the wall carries its own copy; it must stay in an always-visible place, because `<mod>.<command>` only reaches copies that are shown.
 - **Constraints:** the terminals block must keep the id `main`, and the tree must stay shallow (`layout.set` refuses nesting deeper than 16 levels). `layout.set` only works on personal layouts.
 
 ## 4. Design principles (condensed; the full version is in `design-principles.md`)
@@ -147,7 +148,7 @@ A failed read never blanks the panel. The last good list stays up, and after thr
   ```
 - **Status:** `herdr-app status` must show `"errors": []`. Saved files hot-reload in the running window.
 - **Look at it:** `herdr-app shot file.png`, then crop the region you changed (with Python and Pillow) and look. Verify visually every time; a passing check doesn't prove the layout is right.
-- **Drive it:** `herdr-app do <command> '<json>'` (for example `herdr-app do agent-wall.toggle`). `herdr-app commands` lists every command and its arguments.
+- **Drive it:** `herdr-app do <command> '<json>'` (for example `herdr-app do annunciator.wall`). `herdr-app commands` lists every command and its arguments.
 - **Adding a role:**
   1. Add it to `ROLES`.
   2. Write a method `name(c)` returning a `v_flex`: `title()`, then `header()`, then a scrolling list.

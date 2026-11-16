@@ -17,12 +17,12 @@
           }
         },
         {
-          "id": "agent-wall-nav",
+          "id": "annunciator-nav",
           "type": "block",
           "content": {
-            "mod": "agent-wall",
+            "mod": "annunciator",
             "props": {
-              "nav": true
+              "role": "nav"
             }
           },
           "size": {

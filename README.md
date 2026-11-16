@@ -53,7 +53,7 @@ Requires the Herdr desktop app on **Linux**. The system panel reads `/proc` and 
 
 1. **Copy the files** into your Herdr home. Don't overwrite a mod or layout you already have with the same name; rename one of them instead.
    ```sh
-   cp -r mods/annunciator mods/agent-wall ~/.config/herdr-app/mods/
+   cp -r mods/annunciator ~/.config/herdr-app/mods/
    cp layouts/annunciator*.json layouts/annunciator*.svg ~/.config/herdr-app/layouts/
    ```
 2. **Add the key bindings** from `keys.json` to the `global` section of `~/.config/herdr-app/keys.json`. Check first for keys you already use: these replace `alt-up`/`alt-down` (next/previous agent) and `alt-left`/`alt-right` (move between panes).
@@ -101,4 +101,4 @@ Read it, then Herdr's own `~/.config/herdr-app/AGENTS.md`, before changing anyth
 
 ## Credits
 
-Agent Wall is based on [victor-falcon/herdr-mods](https://github.com/victor-falcon/herdr-mods) (MIT, commit 2f0a242), rewritten here. Its license is in [mods/agent-wall/LICENSE](mods/agent-wall/LICENSE).
+Agent Wall is based on [victor-falcon/herdr-mods](https://github.com/victor-falcon/herdr-mods) (MIT, commit 2f0a242), rewritten and built into the annunciator mod. Its license is in [mods/annunciator/LICENSE-agent-wall](mods/annunciator/LICENSE-agent-wall).

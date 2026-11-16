@@ -1,27 +1,28 @@
-// Agent wall. Originally by Víctor Falcón (MIT, see LICENSE),
-// github.com/victor-falcon/herdr-mods, commit 2f0a242. Reworked for annunciator:
+// Agent wall. Originally by Víctor Falcón (MIT, see LICENSE-agent-wall),
+// github.com/victor-falcon/herdr-mods, commit 2f0a242. Reworked and vendored into annunciator:
 //
 // On: the whole window becomes a row of columns, one per running agent (every
-// space), with a 1 px divider between them. Each column is a header (the annunciator
-// mod's "wall" role: everything a pane header shows, plus where it lives) over
-// the agent's live terminal. At most VISIBLE columns show at once; moving focus
-// past either edge slides the view by one.
+// space), with a 1 px divider between them. Each column is a header (the "wall"
+// role: everything a pane header shows, plus where it lives) over the agent's
+// live terminal. At most VISIBLE columns show at once; moving focus past either
+// edge slides the view by one.
 // Off: the window comes back as it was, focused on the agent you were on.
 // The original layout is kept in shared state, so a wall left on survives a
 // restart and can still be undone.
+//
+// Commands (annunciator.wall, annunciator.left, annunciator.right) reach only
+// copies that are shown, so the "nav" role, a 0 px block, takes them: the layouts
+// put one in the top row, and the wall carries its own.
 
-import { View, div } from "gpui-kit";
-import { agents, closeOverlay, focused, layout, nextCommand, notify, panes, props, run, setShared, shared } from "herdr";
+import { agents, focused, layout, notify, panes, run, setShared, shared } from "herdr";
 
-const WALL_ID = "agent-wall";
-const NAV_ID = "agent-wall-nav";
-const STATE_KEY = "agent-wall.saved";
+const WALL_ID = "annunciator-wall";
+const NAV_ID = "annunciator-nav";
+const STATE_KEY = "annunciator.wall";
 const VISIBLE = 4;      // columns on screen at once
 const HEADER_PX = 34;   // two 16 px lines and a rule
 
-// The navigator: a 0px copy of this mod that receives the key commands. It
-// moves into the wall while the wall is shown, so the keys keep working.
-const navBlock = () => ({ id: NAV_ID, type: "block", size: { px: 0 }, content: { mod: "agent-wall", props: { nav: true } } });
+const navBlock = () => ({ id: NAV_ID, type: "block", size: { px: 0 }, content: { mod: "annunciator", props: { role: "nav" } } });
 const cellId = (address) => `${WALL_ID}-${address.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
 function wallNode(list, offset) {
@@ -82,11 +83,11 @@ function toggle() {
 }
 
 // Left/right on the wall: the next agent, sliding the view when it is off
-// screen. Anywhere else (or up/down): plain pane.go, as the keys did before.
+// screen. Anywhere else: plain pane.go, as the keys did before.
 function go(direction) {
   const tree = layout();
   const saved = shared(STATE_KEY);
-  if (!isWall(tree) || !saved?.list || (direction !== "left" && direction !== "right")) {
+  if (!isWall(tree) || !saved?.list) {
     run("pane.go", { direction });
     return;
   }
@@ -102,44 +103,16 @@ function go(direction) {
   run("pane.focus", { terminal: list[j] });
 }
 
-const COMMANDS = {
-  toggle,
-  left: () => go("left"),
-  right: () => go("right"),
-  up: () => go("up"),
-  down: () => go("down"),
-};
+const COMMANDS = { wall: toggle, left: () => go("left"), right: () => go("right") };
 
-function attempt(fn) {
+// Runs a wall command by name; returns false for any other command.
+export function wallCommand(name) {
+  const fn = COMMANDS[name];
+  if (!fn) return false;
   try {
     fn();
   } catch (e) {
     notify({ title: "Agent wall", body: String(e?.message ?? e), level: "error" });
   }
-}
-
-// Two ways in:
-// - the navigator copy (props.nav, a 0px block always shown) takes the key
-//   commands agent-wall.toggle and agent-wall.left|right|up|down;
-// - opened by a key with mod.open, it toggles once and closes itself.
-export default class AgentWall extends View {
-  init(_props, cx) {
-    if (props()?.nav) {
-      cx.spawn(async () => {
-        for (;;) {
-          const command = COMMANDS[await nextCommand()];
-          if (command) attempt(command);
-        }
-      });
-      return;
-    }
-    cx.spawn(async () => {
-      attempt(toggle);
-      closeOverlay(props().overlay);
-    });
-  }
-
-  render() {
-    return div();
-  }
+  return true;
 }
