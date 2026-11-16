@@ -170,7 +170,7 @@ Use only glyphs Berkeley Mono contains. It has `─ ├ └ │ ┬ ■ • · �
 
 ## 16. Read first, act gently
 
-**Rule.** Panels show things. Clicking a row goes to it: it focuses a terminal or selects a space. The only other actions create things (`+` for a tab, `new space`).
+**Rule.** Panels show things. Clicking a row goes to it: it focuses a terminal or selects a space. The only other actions create things (`+` for a tab, `new space`) or reorder them (drag a tab within its space, or a space among spaces, in the agent tree).
 
 - No kill, stop, restart, close or delete buttons in a panel. Destructive actions stay on keys, where they're deliberate.
 - No mod that reads credentials, downloads binaries or spends tokens on its own.
@@ -202,6 +202,6 @@ Use only glyphs Berkeley Mono contains. It has `─ ├ └ │ ┬ ■ • · �
 6. Do problems sort to the top, and do healthy things collapse? (8)
 7. Is there a time in state? (9)
 8. Does it fit its rows, with a cap? (13)
-9. Is it read-only, with clicks that only navigate or create? (16)
+9. Is it read-only, with clicks that only navigate, create or reorder? (16)
 10. Are its glyphs all in Berkeley Mono? (7)
 11. Are its labels plain words? (12)

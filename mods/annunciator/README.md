@@ -45,7 +45,7 @@ The `px` sizes in the file change at runtime. Regions call `layout.resize` to fi
 | Role | Shows | Data, how often | Clicks |
 |---|---|---|---|
 | `top` | Only what needs you or has errored, with how long it's waited, plus machine warnings; empty when all is calm. A clock only in the narrow layout (otherwise the SYSTEM title has it). Window buttons. | Herdr state; system levels every 5 s | — |
-| `roster` | **Agent tree.** For each space, a header line (name, branch, `+`), then every pane: `├─ 1` or `├─ 2.1` for a pane in a split tab. Agents get a full row: glyph, task, branch (blank when it matches the space's), for, age, cpu, mem, activity sparkline, doing (or the question a blocked agent is asking). Shells (`$`) and mod panes (`·`) get one muted line. Sub-agents nest under their agent. Title: `N spaces · N agents`, then toggles `faults only`, `by urgency` (a flat triage list with a where column), `new space`. | `agents()`, `panes()`, `terminals()`, `spaces()`, `hc get`; `/proc` CPU every 5 s; screen read once when an agent becomes blocked | A pane line focuses that pane; a space line selects the space; `+` runs `tab.new` in that space's working folder; clicking an agent's glyph folds its sub-agents |
+| `roster` | **Agent tree.** For each space, a header line (name, branch, `+`), then every pane: `├─ 1` or `├─ 2.1` for a pane in a split tab. Agents get a full row: glyph, task, branch (blank when it matches the space's), for, age, cpu, mem, activity sparkline, doing (or the question a blocked agent is asking). Shells (`$`) and mod panes (`·`) get one muted line. Sub-agents nest under their agent. Title: `N spaces · N agents`, then toggles `faults only`, `by urgency` (a flat triage list with a where column), `new space`. | `agents()`, `panes()`, `terminals()`, `spaces()`, `hc get`; `/proc` CPU every 5 s; screen read once when an agent becomes blocked | A pane line focuses that pane; a space line selects the space; `+` runs `tab.new` in that space's working folder; clicking an agent's glyph folds its sub-agents; dragging a tab's line (any of its panes) moves it within its space (`tab.move`), dragging a space line moves the space (`space.move`, same machine only). A 2 px grey rule shows where it lands; leaving the tree cancels. Herdr has no command to move a tab to another space, so other spaces show no rule. |
 | `events` | Time-ordered log: agent state changes, system thresholds crossed, container state changes. Newest first, filling whatever height the side column has left; older entries scroll. It is the side column's only flexible panel, so it shrinks first when the window is short. | Kept in memory; the last 500 saved to localStorage | Focuses the agent |
 | `system` | Label/value table in TR-100 style: cpu, cores, load, pressure, memory, swap, GPU (NVIDIA, through `nvidia-smi`), temperatures, disk, disk and network I/O, with bars and sparklines | `/proc`, hwmon, `nvidia-smi`, `df`, every 2 s | — |
 | `repos` | One row per git repo the terminals are in: branch, dirty, ahead, behind, number of agents, path | `git status --porcelain=v2`, every 30 s | — |
@@ -117,7 +117,7 @@ A failed read never blanks the panel. The last good list stays up, and after thr
 14. **Lines separate, bars signal.** No rounded corners, shadows, icons or gradients.
 15. **Hierarchy is drawn as a `tree`:** `├─ └─ │`, drawn dim.
 16. **Read first, act gently.**
-    - Clicks only navigate or create.
+    - Clicks only navigate, create or reorder.
     - No kill, stop or close buttons; destructive actions stay on keys.
     - No mod that reads credentials, downloads binaries or spends tokens.
 17. **Only the working spinner moves.**
@@ -180,6 +180,7 @@ A failed read never blanks the panel. The last good list stays up, and after thr
 
 ## 6. Open items
 
+- **Never dragged:** drag-to-reorder in the agent tree has only been checked with `herdr-app check`, a screenshot, and `tab.move` run by hand. The mouse handling itself (`draggable`, `dragOver`, `drop` in main.js) hasn't been tried with a real pointer yet.
 - **Never clicked:** the click actions in the agent tree and containers panel (space select, pane focus, `+` new tab, `new space`, unfolding a project) have never been clicked. Only their command arguments were checked against `herdr-app commands`.
 - **Never seen on screen:** the `by urgency` flat view.
 - **Previews out of date:** `annunciator.svg` and `annunciator-narrow.svg`.

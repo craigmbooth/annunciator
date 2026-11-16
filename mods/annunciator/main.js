@@ -284,27 +284,108 @@ export default class Annunciator extends View {
     // Only the pane that has the keyboard. (focused().agent and agents()[i].focused can name an
     // agent in another space, which lit two rows at once.)
     const focusPane = focused()?.pane ?? null;
+    // `metas[i]` says which space (and tab) line i belongs to, for dragging. Lines outside
+    // the tree (the flat view, agents no space claims) have none and don't drag.
     const lines = [];
-    const addAgent = (r, lead, cont, spBranch) => {
-      lines.push(this.agentRow(c, r, cols, now, r.pane === focusPane, lead, spBranch));
+    const metas = [];
+    const push = (el, m) => { lines.push(el); metas.push(m); };
+    const tabOf = (sp, q) => sp?.tabs.find((t) => t.id === q?.tab) ?? null;
+    const addAgent = (r, lead, cont, spBranch, m) => {
+      push(this.agentRow(c, r, cols, now, r.pane === focusPane, lead, spBranch), m);
       if (this.folded.has(r.address)) return;
-      r.children.forEach((k, i) => lines.push(this.subRow(c, r, k, cols, now, i === r.children.length - 1, cont)));
+      r.children.forEach((k, i) => push(this.subRow(c, r, k, cols, now, i === r.children.length - 1, cont), m));
     };
-    if (flat) rows.forEach((r) => addAgent(r, null, null, null));
+    if (flat) rows.forEach((r) => addAgent(r, null, null, null, null));
     for (const e of entries) {
       const lead = { text: leadText(e), w: leadW };
       const cont = { text: e.last ? "" : "│", w: leadW };
-      if (e.sp && !e.q) lines.push(this.spaceRow(c, e.sp, ps, cols, leadW));
-      else if (e.r) addAgent(e.r, lead, cont, e.sp?.branch ?? null);
-      else lines.push(this.paneRow(c, e.q, cols, lead, e.sp?.branch ?? null));
+      const m = e.sp ? { sp: e.sp, tab: e.q ? tabOf(e.sp, e.q) : null } : null;
+      if (e.sp && !e.q) push(this.spaceRow(c, e.sp, ps, cols, leadW), m);
+      else if (e.r) addAgent(e.r, lead, cont, e.sp?.branch ?? null, m);
+      else push(this.paneRow(c, e.q, cols, lead, e.sp?.branch ?? null), m);
     }
+    groupLines(metas);
     const empty = div().px(CH).text_color(c.dim).child(faults ? "no agent needs attention" : "no agents reporting a status yet");
     // The band fits its rows; past 24 it scrolls.
     this.fitHeight("roster", Math.min(24, Math.max(1, lines.length)));
+    const dragging = Boolean(this.drag?.active);
     return v_flex().size_full().min_h(0)
       .child(head).child(colHead)
       .child(v_flex().id("roster-list").flex_1().min_h(0).overflow_y_scrollbar()
-        .children(lines.length ? lines : [empty]));
+        .when(dragging, (el) => el.cursor_grabbing())
+        .on_mouse_up("left", (_e, cx) => this.drop(cx))
+        // Leaving the tree mid-drag cancels it: a release out there would never reach us.
+        .on_hover((over, cx) => { if (!over && this.drag) { this.drag = null; cx.notify(); } })
+        .children(lines.length ? lines.map((el, i) => this.draggable(c, el, i, metas)) : [empty]));
+  }
+
+  // ── dragging in the tree: a tab within its space, or a space among spaces ──
+  // A press on a tab's line (any of its panes or sub-agents) picks up the tab; a press on a
+  // space's header line picks up the space. It becomes a drag after 4 px. A 2 px grey rule
+  // shows where it will land; a drop runs tab.move or space.move. Herdr can't move a tab to
+  // another space, so other spaces show no rule.
+  draggable(c, el, i, metas) {
+    const m = metas[i];
+    if (!m) return el;
+    const d = this.drag?.active ? this.drag : null;
+    const picked = d && (d.kind === "tab" ? m.tab?.id === d.id : m.sp.id === d.id);
+    const rule = d?.target?.line === i ? d.target.edge : null;
+    el = el.relative()
+      .on_mouse_down("left", (e) => {
+        this.drag = m.tab
+          ? { kind: "tab", id: m.tab.id, space: m.sp.id, y0: e.position.y, active: false, target: null }
+          : { kind: "space", id: m.sp.id, machine: m.sp.machine, y0: e.position.y, active: false, target: null };
+      })
+      .on_mouse_move((e, cx) => this.dragOver(e, m, cx));
+    if (picked) el = el.opacity(0.4);
+    if (rule) el = el.child(div().absolute().left_0().right_0().h(2).bg(c.fg)[rule === "top" ? "top_0" : "bottom_0"]());
+    return el;
+  }
+
+  dragOver(e, m, cx) {
+    const d = this.drag;
+    if (!d) return;
+    const started = !d.active;
+    if (started) {
+      if (Math.abs(e.position.y - d.y0) < 4) return;
+      d.active = true;
+    }
+    // Where in its group the pointer is, in rows: the upper half of a group drops before it.
+    const frac = Math.max(0, Math.min(1, (e.local_position?.y ?? 0) / ROW));
+    let target = null;
+    if (d.kind === "tab" && m.sp.id === d.space) {
+      const src = m.sp.tabs.find((t) => t.id === d.id)?.index;
+      if (m.tab) {
+        const before = m.ti + frac < m.tn / 2;
+        target = slot(src, m.tab.index, before, before ? m.tFirst : m.tLast);
+      } else if (m.firstTab) {
+        target = slot(src, m.firstTab.index, true, m.sFirst);
+        if (target) target.edge = "bottom";   // the header's lower rule: the top of the space
+      }
+    } else if (d.kind === "space" && (m.sp.machine ?? null) === (d.machine ?? null)) {
+      const src = spaces().find((s) => s.id === d.id)?.index;
+      const before = m.si + frac < m.sn / 2;
+      target = slot(src, m.sp.index, before, before ? m.sFirst : m.sLast);
+    }
+    const same = (a, b) => (a?.line === b?.line && a?.edge === b?.edge && a?.index === b?.index);
+    if (started || !same(target, d.target)) { d.target = target; cx.notify(); }
+  }
+
+  drop(cx) {
+    const d = this.drag;
+    this.drag = null;
+    if (!d?.active) return;
+    this.dragEnded = Date.now();
+    if (d.target) run(d.kind === "tab" ? "tab.move" : "space.move", { id: d.id, index: d.target.index });
+    cx.notify();
+  }
+
+  // A click handler that ignores the click a drag ends with.
+  clicked(fn) {
+    return (e, cx) => {
+      if (this.drag?.active || Date.now() - (this.dragEnded ?? 0) < 300) return;
+      fn(e, cx);
+    };
   }
 
   // A space's header line: its name over the lead, glyph and task columns, its branch
@@ -313,19 +394,19 @@ export default class Annunciator extends View {
     const task = cols.find((x) => x.k === "task");
     const plus = div().id(`sp-new-${sp.id}`).flex_none().w(2 * CH).text_right().text_color(c.dim).cursor_pointer()
       .hover((st) => st.text_color(c.fg))
-      .on_click((_e, cx) => {
+      .on_click(this.clicked((_e, cx) => {
         cx.stop_propagation();
         const tabIds = [sp.tabs.find((t) => t.active)?.id, ...sp.tabs.map((t) => t.id)];
         const here = tabIds.map((id) => ps.find((q) => q.tab === id && q.cwd)).find(Boolean)?.cwd || sp.folder || undefined;
         run("tab.new", { space: sp.id, folder: here });
-      }).child("+");
+      })).child("+");
     const cells = [cell(sp.name, leadW + 1 + 2 + 1 + task.w, { color: sp.active ? c.fg : c.muted })];
     for (const x of cols.slice(1)) {
       if (x.w === "rest") break;
       cells.push(cell(x.k === "branch" ? sp.branch : "", x.w, { color: c.dim, blank: true }));
     }
     cells.push(cell("", "rest", { blank: true }), plus);
-    return row(`sp-${sp.id}`, cells, { bar: stateBar(c, sp.status), onClick: () => run("space.select", { id: sp.id }) });
+    return row(`sp-${sp.id}`, cells, { bar: stateBar(c, sp.status), onClick: this.clicked(() => run("space.select", { id: sp.id })) });
   }
 
   // A pane that isn't an agent: "$" and the program and folder for a terminal, "·" for a mod.
@@ -336,7 +417,7 @@ export default class Annunciator extends View {
       : x.k === "branch" && q.branch && q.branch !== spBranch ? cell(q.branch, x.w, { color: c.muted })
       : cell("", x.w, { blank: true }));
     return row(`pq-${q.pane}`, [cell(lead.text, lead.w, { color: c.dim }), div().flex_none().w(2 * CH).text_color(c.dim).child(q.mod ? "·" : "$"), ...cells],
-      { bg: q.focused ? c.sel : null, onClick: () => run("pane.focus", { pane: q.pane }) });
+      { bg: q.focused ? c.sel : null, onClick: this.clicked(() => run("pane.focus", { pane: q.pane })) });
   }
 
   agentRow(c, r, cols, now, focus, lead = null, spBranch = null) {
@@ -363,17 +444,17 @@ export default class Annunciator extends View {
     const g = glyph(c, r.status, `g-${r.address}`);
     const foldable = r.children.length > 0;
     const glyphCell = foldable
-      ? h_flex().id(`fold-${r.address}`).flex_none().cursor_pointer().on_click((_e, cx) => {
+      ? h_flex().id(`fold-${r.address}`).flex_none().cursor_pointer().on_click(this.clicked((_e, cx) => {
         cx.stop_propagation();
         this.folded.has(r.address) ? this.folded.delete(r.address) : this.folded.add(r.address);
         this.savePrefs(); cx.notify();
-      }).child(g)
+      })).child(g)
       : g;
     const leadCell = lead ? [cell(lead.text, lead.w, { color: c.dim })] : [];
     return row(`r-${r.address}`, [...leadCell, glyphCell, ...cols.map((x) => cell(val[x.k][0], x.w, { right: x.right, ...val[x.k][1], blank: x.k === "subs" || val[x.k][1].blank }))], {
       bar: stateBar(c, r.status),
       bg: focus ? c.sel : null,
-      onClick: () => run("pane.focus", { pane: r.pane }),
+      onClick: this.clicked(() => run("pane.focus", { pane: r.pane })),
     });
   }
 
@@ -392,7 +473,7 @@ export default class Annunciator extends View {
     };
     // Children inherit agent/where/folder/branch from the row above: left blank so they read as a group.
     const cells = cols.map((x) => (val[x.k] ? cell(val[x.k][0], x.w, { right: x.right, ...val[x.k][1], blank: x.k === "doing" }) : cell("", x.w, { blank: true })));
-    const click = k.record ? null : () => (k.kept ? run("pane.focus", { terminal: k.address }) : run("terminal.peek", { terminal: k.address }));
+    const click = k.record ? null : this.clicked(() => (k.kept ? run("pane.focus", { terminal: k.address }) : run("terminal.peek", { terminal: k.address })));
     const leadCell = cont ? [cell(cont.text, cont.w, { color: c.dim, blank: true })] : [];
     return row(`s-${k.address}`, [...leadCell, glyph(c, k.status, `sg-${k.address}`), ...cells], { bar: stateBar(c, k.status), onClick: click });
   }
@@ -694,6 +775,34 @@ export default class Annunciator extends View {
     return h_flex().size_full().items_center().gap(CH * 2).px(CH).border_t(1).border_color(c.rule).text_color(c.dim)
       .children(hints.map(([k, w]) => h_flex().flex_none().gap(CH).child(div().text_color(c.muted).child(k)).child(div().child(w))));
   }
+}
+
+// Marks each tree line with its place in its tab (ti of tn, tFirst..tLast) and in its space
+// (si of sn, sFirst..sLast), and gives a space's lines the first tab shown under it.
+function groupLines(metas) {
+  const mark = (key, i, n, first, last) => Object.assign(metas[i], { [key + "i"]: i - first, [key + "n"]: n, [key + "First"]: first, [key + "Last"]: last });
+  const runs = (same, key) => {
+    for (let i = 0; i < metas.length;) {
+      if (!metas[i]) { i++; continue; }
+      let j = i;
+      while (j + 1 < metas.length && metas[j + 1] && same(metas[i], metas[j + 1])) j++;
+      for (let k = i; k <= j; k++) mark(key, k, j - i + 1, i, j);
+      i = j + 1;
+    }
+  };
+  // Copy each meta so lines of one space don't share (and overwrite) one object.
+  metas.forEach((m, i) => { if (m) metas[i] = { ...m }; });
+  runs((a, b) => a.sp.id === b.sp.id, "s");
+  runs((a, b) => a.tab && b.tab && a.tab.id === b.tab.id, "t");
+  for (const m of metas) if (m) m.firstTab = metas.slice(m.sFirst, m.sLast + 1).find((x) => x.tab)?.tab ?? null;
+}
+
+// The 1-based position a dragged item at `src` ends up at, dropped before or after the one at
+// `at`; null when that's where it already is. `line` is the tree line that shows the rule.
+function slot(src, at, before, line) {
+  if (src == null) return null;
+  const index = before ? (src < at ? at - 1 : at) : (src < at ? at : at + 1);
+  return index === src ? null : { index, line, edge: before ? "top" : "bottom" };
 }
 
 const hasNode = (n, id) => Boolean(n && (n.id === id || (n.children ?? []).some((c) => hasNode(c, id))));

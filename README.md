@@ -18,7 +18,7 @@ web                                                                             
 
 | Region | Shows |
 |---|---|
-| **Agent tree** (above the terminals) | Every space, then every pane in it: `├─ 1` for a tab, `├─ 2.1` for a pane in a split tab. Agents get a full row: state symbol, task, branch, time in state, age, cpu, memory, activity, and what they're doing (or the question they're asking). Shells and other panes get one muted line. Click a row to go to it. `+` opens a tab in that space's folder. |
+| **Agent tree** (above the terminals) | Every space, then every pane in it: `├─ 1` for a tab, `├─ 2.1` for a pane in a split tab. Agents get a full row: state symbol, task, branch, time in state, age, cpu, memory, activity, and what they're doing (or the question they're asking). Shells and other panes get one muted line. Click a row to go to it. Drag a tab's row to reorder tabs within its space, or a space's name line to reorder spaces. `+` opens a tab in that space's folder. |
 | **Terminals** | The shown tab, framed with 1 px rules, without a pane header. |
 | **System** | CPU, cores, load, pressure, memory, swap, NVIDIA GPU, temperatures, disk, disk and network I/O, as a label/value table with bars and sparklines. Holds the clock. |
 | **Events** | Every agent state change, system threshold crossed and container state change, newest first. |
@@ -90,7 +90,7 @@ Mods are trusted code in Herdr, so here is everything this one does outside Herd
   - `hc get` and `hc read` (Herdr's own core: agent timing, and the last line of a blocked agent's screen)
 - **Network:** none.
 - **Files:** reads `/proc` and `/sys`, and writes nothing outside Herdr's per-mod storage.
-- **Actions:** clicks only navigate or create (focus a pane, select a space, new tab, new space). There are no kill, stop, restart or close buttons.
+- **Actions:** clicks only navigate, create or reorder (focus a pane, select a space, new tab, new space, drag a tab or space to a new position). There are no kill, stop, restart or close buttons.
 
 Agent Wall uses only Herdr's API.
 
