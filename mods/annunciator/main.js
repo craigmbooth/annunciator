@@ -654,22 +654,29 @@ export default class Annunciator extends View {
     const ag = roster();
     const roots = new Map();
     for (const r of ag) {
-      if (r.pid) roots.set(r.pid, r.where);
-      for (const k of r.children) if (k.pid) roots.set(k.pid, `${r.where} ›`);
+      if (r.pid) roots.set(r.pid, { label: r.where, pane: r.pane });
+      for (const k of r.children) if (k.pid) roots.set(k.pid, { label: `${r.where} ›`, pane: r.pane });
     }
     const cols = fit(PS_COLS, this.size.width);
     // Ties (an idle machine shows many at 0%) go to the larger memory user.
     const top = [...store.ps].sort((a, b) => b.cpu - a.cpu || b.rss - a.rss).slice(0, 8);
     const lines = top.map((p) => {
       const who = ownerOf(p.pid, roots);
-      return row(`ps-${p.pid}`, fitted(cols, {
+      const cells = fitted(cols, {
         pid: [p.pid, { color: c.dim }],
         cpu: [pct(p.cpu), { color: p.cpu >= 50 ? c.fg : c.muted, bold: p.cpu >= 90 }],
         mem: [bytes(p.rss), { color: c.muted }],
         time: [ago(p.etimes * 1000), { color: c.dim }],
-        agent: [who, { color: who ? c.fg : c.dim }],
+        agent: [who?.label, { color: who ? c.fg : c.dim }],
         command: [p.comm, { color: c.muted }],
-      }));
+      });
+      // The agent's name goes to that agent's terminal (a sub-agent's process goes to its parent).
+      const at = cols.findIndex((x) => x.k === "agent");
+      if (who?.pane && at >= 0) {
+        cells[at] = cells[at].id(`ps-go-${p.pid}`).cursor_pointer().hover((st) => st.underline())
+          .on_click(() => run("pane.focus", { pane: who.pane }));
+      }
+      return row(`ps-${p.pid}`, cells);
     });
     const total = store.ps.reduce((s, p) => s + p.cpu, 0);
     // The top 8 by cpu; the block fits them.
