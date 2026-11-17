@@ -664,7 +664,7 @@ export default class Annunciator extends View {
       const who = ownerOf(p.pid, roots);
       const cells = fitted(cols, {
         pid: [p.pid, { color: c.dim }],
-        cpu: [pct(p.cpu), { color: p.cpu >= 50 ? c.fg : c.muted, bold: p.cpu >= 90 }],
+        cpu: [pct(p.cpu), { color: p.cpu > 100 ? c.amber : c.muted }], // over one whole core
         mem: [bytes(p.rss), { color: c.muted }],
         time: [ago(p.etimes * 1000), { color: c.dim }],
         agent: [who?.label, { color: who ? c.fg : c.dim }],

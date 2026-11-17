@@ -25,7 +25,7 @@ web                                                                             
 | **Repos** | One row per git repo the terminals are in: branch, dirty, ahead, behind, agents. |
 | **Containers** | Docker. Containers that are restarting, unhealthy or recently failed come first, in red. Healthy ones fold into one row per compose project. |
 | **Claude limits** | Each Claude plan usage window (5 hour, 7 day) with % used, a bar, when it resets and how long until then. Amber at 80%, red at 95%. |
-| **Processes** | Top 8 by CPU, each with the agent that started it. Click the agent to go to its terminal. |
+| **Processes** | Top 8 by CPU, each with the agent that started it. A process using more than one whole core (over 100%) shows its cpu in amber. Click the agent to go to its terminal. |
 | **Top bar** | Only what needs you or has errored, plus machine warnings. Empty when all is calm. |
 | **Bottom bar** | Key hints. |
 
