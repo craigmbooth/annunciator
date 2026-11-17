@@ -432,11 +432,11 @@ export default class Annunciator extends View {
       folder: [r.folder, { color: c.dim }],
       branch: [lead && r.branch === spBranch ? "" : r.branch, { color: c.muted, blank: Boolean(lead) }],
       state: [WORD[r.status], { color: stateColor(c, r.status), italic: r.inferred }],
-      for: [r.since ? ago(now - r.since) : null, { color: r.status === "blocked" ? c.amber : c.fg, bold: r.status === "blocked" }],
+      for: [r.since ? ago(now - r.since) : null, { color: r.status === "blocked" ? c.amber : c.muted, bold: r.status === "blocked" }],
       age: [r.created ? ago((r.finished ?? now) - r.created) : null, { color: c.dim }],
       turns: [r.turn, { color: c.muted }],
       subs: [r.subs || null, { color: c.muted }],
-      cpu: [hasUsage ? pct(usage.cpu) : null, { color: hot ? c.fg : c.dim }],
+      cpu: [hasUsage ? pct(usage.cpu) : null, { color: hot ? c.muted : c.dim }],
       mem: [hasUsage ? bytes(usage.rss) : null, { color: c.muted }],
       doing: [doing, { color: r.status === "blocked" ? c.amber : c.muted }],
     };
@@ -485,14 +485,10 @@ export default class Annunciator extends View {
     const now = Date.now();
     const recent = store.events.filter((e) => now - e.at < 600000);
     const shown = store.events.slice(0, 200);
-    // The log is a record, not a call to act, so it has no color (DESIGN.md 4): a change into
-    // trouble reads in the foreground, a return to calm in muted grey.
-    const trouble = (e) => (e.system ? e.tone || e.to === "warn" || e.to === "crit" : e.to === "blocked" || e.to === "error");
-    const colorOf = (e) => (trouble(e) ? c.fg : c.muted);
     const cols = fit(EV_COLS, this.size.width);
     const change = (e) => h_flex().flex_none().w(cols.find((x) => x.k === "change").w * CH).overflow_hidden().whitespace_nowrap()
       .child(div().text_color(c.dim).child(`${e.system ? e.from : WORD[e.from] ?? e.from} → `))
-      .child(div().text_color(colorOf(e)).child(e.system ? e.to : WORD[e.to] ?? e.to));
+      .child(div().text_color(c.muted).child(e.system ? e.to : WORD[e.to] ?? e.to)); // a record: no color, no white
     const lines = shown.map((e, i) => row(`ev-${i}-${e.at}`, cols.map((x) => x.k === "change" ? change(e) : fitted([x], {
       time: [clock(e.at), { color: c.dim }],
       where: [e.where, { color: c.muted }],
@@ -589,7 +585,7 @@ export default class Annunciator extends View {
     const LABEL = 9, VALUE = 18;
     const graphW = Math.max(8, Math.min(60, chars - LABEL - VALUE - 3));
     const lvl = levels();
-    const col = (l) => levelColor(c, l) ?? c.fg;
+    const col = (l) => levelColor(c, l) ?? c.muted; // calm values are grey: white is for attention
     const line = (id, label, value, graph, l = "ok", graphColor = null) => row(`sy-${id}`, [
       cell(label, LABEL, { color: c.dim }),
       cell(value, VALUE, { color: col(l), bold: l !== "ok" }),
@@ -635,12 +631,12 @@ export default class Annunciator extends View {
     const lines = (L?.windows ?? []).map((w) => {
       const gone = w.resets != null && w.resets <= now; // the window reset since this reading
       const l = gone ? "ok" : lvl[`claude_${w.key}`] ?? "ok";
-      const col = levelColor(c, l) ?? c.fg;
+      const col = levelColor(c, l) ?? c.muted;
       return row(`lm-${w.key}`, [
         cell(w.label, WIN, { color: c.dim }),
         cell(gone ? "—" : pct(w.pct), USED, { right: true, color: col, bold: l !== "ok" }),
         cell(gone ? "" : bar(w.pct / 100, barW), barW, { color: l === "ok" ? c.dim : col, blank: true }),
-        cell(w.resets == null ? "" : gone ? "reset" : at(w.resets), RESETS, { right: true, color: c.fg }),
+        cell(w.resets == null ? "" : gone ? "reset" : at(w.resets), RESETS, { right: true, color: c.muted }),
         cell(w.resets == null || gone ? "" : `in ${ago(w.resets - now)}`, IN, { right: true, color: c.dim }),
       ]);
     });
