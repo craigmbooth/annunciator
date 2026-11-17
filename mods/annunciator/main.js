@@ -593,7 +593,7 @@ export default class Annunciator extends View {
     const line = (id, label, value, graph, l = "ok", graphColor = null) => row(`sy-${id}`, [
       cell(label, LABEL, { color: c.dim }),
       cell(value, VALUE, { color: col(l), bold: l !== "ok" }),
-      cell(graph, graphW, { color: graphColor ?? (l === "ok" ? c.muted : col(l)), blank: true }),
+      cell(graph, graphW, { color: graphColor ?? (l === "ok" ? c.dim : col(l)), blank: true }),
     ]);
     const cores = (s?.cores ?? []).map((v) => spark([v ?? 0], 1, 100)).join("");
     const memFrac = s ? s.memUsed / s.memTotal : 0;
@@ -639,7 +639,7 @@ export default class Annunciator extends View {
       return row(`lm-${w.key}`, [
         cell(w.label, WIN, { color: c.dim }),
         cell(gone ? "—" : pct(w.pct), USED, { right: true, color: col, bold: l !== "ok" }),
-        cell(gone ? "" : bar(w.pct / 100, barW), barW, { color: l === "ok" ? c.muted : col, blank: true }),
+        cell(gone ? "" : bar(w.pct / 100, barW), barW, { color: l === "ok" ? c.dim : col, blank: true }),
         cell(w.resets == null ? "" : gone ? "reset" : at(w.resets), RESETS, { right: true, color: c.fg }),
         cell(w.resets == null || gone ? "" : `in ${ago(w.resets - now)}`, IN, { right: true, color: c.dim }),
       ]);

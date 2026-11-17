@@ -68,7 +68,7 @@ The tests:
 |---|---|---|
 | Foreground | `#d8d8d8` | Values: the thing you came to read |
 | Muted | `#9a9a9a` | Secondary values: branch, memory, what an agent is doing |
-| Dim | `#5f5f5f` | Labels, paths, timestamps, inherited fields, zeros, tree lines |
+| Dim | `#5f5f5f` | Labels, paths, timestamps, inherited fields, zeros, tree lines, bars and sparklines while calm |
 
 The background is `#0b0b0b`. A selected row is `#1e1e1e`, and hovering a row tints it `#1a1a1a`.
 
