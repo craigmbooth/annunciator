@@ -436,7 +436,7 @@ export default class Annunciator extends View {
       age: [r.created ? ago((r.finished ?? now) - r.created) : null, { color: c.dim }],
       turns: [r.turn, { color: c.muted }],
       subs: [r.subs || null, { color: c.muted }],
-      cpu: [hasUsage ? pct(usage.cpu) : null, { color: hot ? c.muted : c.dim }],
+      cpu: [hasUsage ? pct(usage.cpu) : null, { color: usage?.cpu > 100 ? c.amber : hot ? c.muted : c.dim }], // amber over one whole core, as in Processes
       mem: [hasUsage ? bytes(usage.rss) : null, { color: c.muted }],
       doing: [doing, { color: r.status === "blocked" ? c.amber : c.muted }],
     };
@@ -466,7 +466,7 @@ export default class Annunciator extends View {
       for: [k.since ? ago(now - k.since) : null, { color: c.dim }],
       age: [k.created ? ago(now - k.created) : null, { color: c.dim }],
       turns: [k.turn, { color: c.dim }],
-      cpu: [usage?.found ? pct(usage.cpu) : null, { color: c.dim }],
+      cpu: [usage?.found ? pct(usage.cpu) : null, { color: usage?.cpu > 100 ? c.amber : c.dim }],
       mem: [usage?.found ? bytes(usage.rss) : null, { color: c.dim }],
       doing: [k.record ? "in-process sub-agent" : k.kept ? "has a pane" : "", { color: c.dim }],
     };
