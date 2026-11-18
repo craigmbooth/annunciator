@@ -56,6 +56,8 @@ export const LIMITS = {
   psiMem: [10, 25], cpuTemp: [95, 100], gpuMem: [85, 95], load: [16, 20],
   // every Claude usage window (5 hour, 7 day, …), as % used
   claude: [80, 95],
+  // an agent's context window, as % used (the ctx column; auto-compaction comes near the top)
+  context: [80, 95],
 };
 export const level = (key, v) => {
   const l = LIMITS[key];
@@ -208,6 +210,43 @@ export function probeLimits() {
     }
     store.limits = { at: when(d.at), windows };
   });
+}
+
+// ── context use per Claude Code session every 5 s ───────────────────────────
+// Claude Code hands its status line command the session's context use; the status line script
+// saves it under the claude process's pid. Read only for claude processes that are running, so a
+// file left by a session that ended is never shown.
+export const CONTEXT_DIR = ".cache/annunciator/context";
+export function probeContext() {
+  return fresh("context", 4800, async () => {
+    const pids = store.ps.filter((p) => p.comm === "claude").map((p) => p.pid);
+    const next = {};
+    await Promise.all(pids.map(async (pid) => {
+      const text = await readTextFile(`${home()}/${CONTEXT_DIR}/${pid}.json`).catch(() => null);
+      if (!text) return;
+      try {
+        const d = JSON.parse(text);
+        if (d.pid === pid && d.used != null) next[pid] = { pct: Number(d.used), size: d.size ?? null, at: when(d.at) };
+      } catch (_e) { /* half-written: keep going */ }
+    }));
+    store.context = next;
+  });
+}
+
+// The context use of the Claude Code session at or under this pid (an agent's pid can be the
+// shell that started claude). Null when there's no reading.
+export function contextOf(pid) {
+  if (!pid || !store.context) return null;
+  const kids = new Map();
+  for (const p of store.ps) { if (!kids.has(p.ppid)) kids.set(p.ppid, []); kids.get(p.ppid).push(p.pid); }
+  const queue = [pid]; const seen = new Set();
+  while (queue.length) {
+    const id = queue.shift();
+    if (seen.has(id)) continue; seen.add(id);
+    if (store.context[id]) return store.context[id];
+    queue.push(...(kids.get(id) ?? []));
+  }
+  return null;
 }
 
 // ── disk usage every 60 s ───────────────────────────────────────────────────

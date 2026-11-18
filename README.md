@@ -6,19 +6,19 @@ The look follows U.S. Graphics Company's machine reports, *tabular, short, clear
 
 ```
 AGENTS  3 spaces · 3 agents                                        faults only  by urgency  new space
-     task                               branch                for   age  cpu   mem  doing
+     task                               branch                for   ctx  cpu   mem  doing
 api                                     main                                                    +
-├─ 1 ■  Migrate the billing tables                            12m   2h04  0%  310M  Run the migration? (y/n)
+├─ 1 ■  Migrate the billing tables                            12m   41%  0%  310M  Run the migration? (y/n)
 └─ 2 $  bash  ~/src/api
 web                                                                                             +
-└─ 1 ▖  Fix the login redirect                                 3m   41m   9%  702M  Editing src/auth.ts
+└─ 1 ▖  Fix the login redirect                                 3m   12%  9%  702M  Editing src/auth.ts
 ```
 
 ## What's on screen
 
 | Region | Shows |
 |---|---|
-| **Agent tree** (above the terminals) | Every space, then every pane in it: `├─ 1` for a tab, `├─ 2.1` for a pane in a split tab. Agents get a full row: state symbol, task, branch, time in state, age, cpu (yellow above 100%, more than one whole core), memory, and what they're doing (or the question they're asking). Shells and other panes get one muted line. Click a row to go to it. Drag a tab's row to reorder tabs within its space, or a space's name line to reorder spaces. `+` opens a tab in that space's folder. |
+| **Agent tree** (above the terminals) | Every space, then every pane in it: `├─ 1` for a tab, `├─ 2.1` for a pane in a split tab. Agents get a full row: state symbol, task, branch, time in state, context used (`ctx`: yellow at 80%, red at 95%), cpu (yellow above 100%, more than one whole core), memory, and what they're doing (or the question they're asking). Shells and other panes get one muted line. Click a row to go to it. Drag a tab's row to reorder tabs within its space, or a space's name line to reorder spaces. `+` opens a tab in that space's folder. |
 | **Terminals** | The shown tab, framed with 1 px rules, without a pane header. |
 | **System** | CPU, cores, load, pressure, memory, swap, NVIDIA GPU, temperatures, disk, disk and network I/O, as a label/value table with bars and sparklines. While the GPU is idle its three rows fold into one `gpu idle` line. Holds the clock. |
 | **Events** | Every agent state change, system threshold crossed and container state change, newest first. |
@@ -63,14 +63,33 @@ Requires the Herdr desktop app on **Linux**. The system panel reads `/proc` and 
    herdr-app do layout.switch '{"name":"annunciator"}'
    ```
    `herdr-app status` should show `"errors": []`.
-4. **Claude limits (optional):** Claude Code passes your plan's usage windows to its status line command as JSON on stdin (`rate_limits`). Add this to your status line script (`statusLine` in `~/.claude/settings.json`) so it saves just that part for the panel. It needs `jq`. If your script already reads stdin, pipe that same JSON through the `jq` line instead.
+4. **Claude limits and context use (optional):** Claude Code passes its status line command a JSON payload on stdin, including your plan's usage windows (`rate_limits`) and the session's context use (`context_window`). Add this to the top of your status line script (`statusLine` in `~/.claude/settings.json`) so it saves just those two parts, for the Claude limits panel and the agents' `ctx` column. It needs `jq`. If your script already reads stdin, use its `$input` instead of reading it again.
    ```sh
-   limits="$HOME/.cache/annunciator/claude-limits.json"
-   mkdir -p "${limits%/*}"
-   jq -c 'select(.rate_limits != null) | {at: now, rate_limits}' 2>/dev/null >"$limits.tmp" \
+   input=$(cat)
+   cache="$HOME/.cache/annunciator"
+   mkdir -p "$cache/context"
+   limits="$cache/claude-limits.json"
+   printf '%s' "$input" | jq -c 'select(.rate_limits != null) | {at: now, rate_limits}' 2>/dev/null >"$limits.tmp" \
      && [ -s "$limits.tmp" ] && mv "$limits.tmp" "$limits" || rm -f "$limits.tmp"
+   # Context use is saved under the claude process's pid, found by walking up from this script.
+   pid=$PPID
+   while [ "${pid:-1}" -gt 1 ] && [ ! -f "$HOME/.claude/sessions/$pid.json" ]; do
+     pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+   done
+   if [ "${pid:-1}" -gt 1 ]; then
+     ctx="$cache/context/$pid.json"
+     printf '%s' "$input" | jq -c --argjson pid "$pid" 'select(.context_window.used_percentage != null)
+       | {at: now, pid: $pid, used: .context_window.used_percentage, size: .context_window.context_window_size}' \
+       2>/dev/null >"$ctx.tmp" && [ -s "$ctx.tmp" ] && mv "$ctx.tmp" "$ctx" || rm -f "$ctx.tmp"
+   fi
+   # Drop readings for sessions that have ended.
+   for f in "$cache"/context/*.json; do
+     [ -e "$f" ] || continue
+     p=${f##*/}; p=${p%.json}
+     kill -0 "$p" 2>/dev/null || rm -f "$f"
+   done
    ```
-   The reading is as fresh as the last time a Claude Code session refreshed its status line; the panel title says how old it is.
+   Readings are as fresh as the last time a Claude Code session refreshed its status line, which it does as it works. The limits panel title says how old its reading is. An agent's `ctx` stays blank until its session refreshes once.
 
 **Settings** are in `~/.config/herdr-app/mods/annunciator/config.json`. Saving it reloads the mod.
 
@@ -98,7 +117,7 @@ Mods are trusted code in Herdr, so here is everything this one does outside Herd
   - `docker ps`, `docker inspect` and `docker stats --no-stream`
   - `hc get` and `hc read` (Herdr's own core: agent timing, and the last line of a blocked agent's screen)
 - **Network:** none.
-- **Files:** reads `/proc`, `/sys` and `~/.cache/annunciator/claude-limits.json` (written by your status line, see Install), and writes nothing outside Herdr's per-mod storage.
+- **Files:** reads `/proc`, `/sys`, `~/.cache/annunciator/claude-limits.json` and `~/.cache/annunciator/context/` (written by your status line, see Install), and writes nothing outside Herdr's per-mod storage.
 - **Actions:** clicks only navigate, create or reorder (focus a pane, select a space, new tab, new space, drag a tab or space to a new position). There are no kill, stop, restart or close buttons.
 
 Agent Wall uses only Herdr's API.

@@ -8,7 +8,7 @@ import { v_flex, h_flex } from "gpui-base";
 import { props, run, panes, agents, focused, keys, window, setAgentOrder, terminals, spaces, layout, nextCommand } from "herdr";
 import {
   store, roster, trackEvents, noteLevel, level, LIMITS, RANK, shortPath,
-  probeSystem, probeSensors, probeDf, probePs, probeCore, probeRepos, probeScreen, treeUsage, ownerOf,
+  probeSystem, probeSensors, probeDf, probePs, probeCore, probeRepos, probeScreen, treeUsage, ownerOf, probeContext, contextOf,
   probeContainers, probeDockerStats, probeLimits,
 } from "./data.js";
 import {
@@ -53,12 +53,21 @@ const REPO_COLS = [
 const ROLES = ["top", "roster", "events", "pane", "system", "procs", "repos", "foot", "wall", "containers", "nav", "limits"];
 
 // Roster columns, in display order. `drop`: lower goes first when space runs out.
+// The ctx cell: % of the context window the agent's Claude Code session has used. Blank for
+// anything that isn't Claude Code; grey until it's time to wrap up or compact.
+function ctxCell(c, pid) {
+  const x = contextOf(pid);
+  if (!x) return ["", { blank: true }];
+  const l = level("context", x.pct);
+  return [pct(x.pct), { color: levelColor(c, l) ?? c.muted, bold: l === "crit" }];
+}
+
 const COLS = [
   { k: "task", w: 26, drop: 99 },
   { k: "where", w: 18, drop: 98 },
   { k: "branch", w: 14, drop: 90 },
   { k: "for", w: 6, right: true, drop: 99 },
-  { k: "age", w: 6, right: true, drop: 1 },
+  { k: "ctx", w: 4, right: true, drop: 5 },
   { k: "cpu", w: 5, right: true, drop: 91 },
   { k: "mem", w: 6, right: true, drop: 6 },
   { k: "doing", w: "rest", min: 24, drop: 99 },
@@ -78,6 +87,7 @@ export default class Annunciator extends View {
     if (this.role === "roster") {
       every(5000, (cx) => cx.spawn(async (cx) => {
         await Promise.all([probePs(), probeCore()]);
+        await probeContext();
         // The question a blocked agent is asking: read its screen once per state change.
         for (const r of roster()) if (r.status === "blocked") await probeScreen(r.address, r.since).catch(() => {});
         cx.notify();
@@ -433,7 +443,7 @@ export default class Annunciator extends View {
       branch: [lead && r.branch === spBranch ? "" : r.branch, { color: c.muted, blank: Boolean(lead) }],
       state: [WORD[r.status], { color: stateColor(c, r.status), italic: r.inferred }],
       for: [r.since ? ago(now - r.since) : null, { color: r.status === "blocked" ? c.amber : c.muted, bold: r.status === "blocked" }],
-      age: [r.created ? ago((r.finished ?? now) - r.created) : null, { color: c.dim }],
+      ctx: ctxCell(c, r.pid),
       turns: [r.turn, { color: c.muted }],
       subs: [r.subs || null, { color: c.muted }],
       cpu: [hasUsage ? pct(usage.cpu) : null, { color: usage?.cpu > 100 ? c.amber : hot ? c.muted : c.dim }], // amber over one whole core, as in Processes
@@ -464,7 +474,7 @@ export default class Annunciator extends View {
       task: [lead + k.task, { color: c.muted }],
       state: [WORD[k.status], { color: stateColor(c, k.status) }],
       for: [k.since ? ago(now - k.since) : null, { color: c.dim }],
-      age: [k.created ? ago(now - k.created) : null, { color: c.dim }],
+      ctx: ctxCell(c, k.pid),
       turns: [k.turn, { color: c.dim }],
       cpu: [usage?.found ? pct(usage.cpu) : null, { color: usage?.cpu > 100 ? c.amber : c.dim }],
       mem: [usage?.found ? bytes(usage.rss) : null, { color: c.dim }],
