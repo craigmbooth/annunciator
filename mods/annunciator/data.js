@@ -52,7 +52,7 @@ export const LIMITS = {
   // cpu and cpuTemp are judged on a 1-minute average (cpuAvg, cpuTemp avg), so a burst of
   // work doesn't trip them. This CPU calls 85 °C "high" and 105 °C critical, and runs in
   // the 90s under load, so it warns only when it stays hot.
-  cpu: [90, 98], mem: [80, 90], swap: [10, 20], disk: [90, 95],
+  cpu: [90, 98], mem: [90, 98], swap: [10, 20], disk: [90, 95],
   psiMem: [10, 25], cpuTemp: [95, 100], gpuMem: [85, 95], load: [16, 20],
   // every Claude usage window (5 hour, 7 day, …), as % used
   claude: [80, 95],
