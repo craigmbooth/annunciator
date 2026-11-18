@@ -155,7 +155,7 @@ Use only glyphs Berkeley Mono contains. It has `─ ├ └ │ ┬ ■ • · �
 | Containers | its rows | 10 |
 | Repos | its rows | 8 |
 | Processes | top 8 by cpu | 8 |
-| System | fixed | — |
+| System | its rows (GPU rows fold while the card is idle) | — |
 | Events | the rest | — |
 
 **Why.** A fixed-height panel holding two rows is mostly empty space, and a fixed-width one clips its last column. Both were tried, and both were rejected.

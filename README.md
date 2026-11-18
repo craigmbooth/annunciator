@@ -20,7 +20,7 @@ web                                                                             
 |---|---|
 | **Agent tree** (above the terminals) | Every space, then every pane in it: `├─ 1` for a tab, `├─ 2.1` for a pane in a split tab. Agents get a full row: state symbol, task, branch, time in state, age, cpu, memory, and what they're doing (or the question they're asking). Shells and other panes get one muted line. Click a row to go to it. Drag a tab's row to reorder tabs within its space, or a space's name line to reorder spaces. `+` opens a tab in that space's folder. |
 | **Terminals** | The shown tab, framed with 1 px rules, without a pane header. |
-| **System** | CPU, cores, load, pressure, memory, swap, NVIDIA GPU, temperatures, disk, disk and network I/O, as a label/value table with bars and sparklines. Holds the clock. |
+| **System** | CPU, cores, load, pressure, memory, swap, NVIDIA GPU, temperatures, disk, disk and network I/O, as a label/value table with bars and sparklines. While the GPU is idle its three rows fold into one `gpu idle` line. Holds the clock. |
 | **Events** | Every agent state change, system threshold crossed and container state change, newest first. |
 | **Repos** | One row per git repo the terminals are in: branch, dirty, ahead, behind, agents. |
 | **Containers** | Docker. Containers that are restarting, unhealthy or recently failed come first, in red. Healthy ones fold into one row per compose project. |

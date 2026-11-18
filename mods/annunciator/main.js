@@ -593,6 +593,8 @@ export default class Annunciator extends View {
     ]);
     const cores = (s?.cores ?? []).map((v) => spark([v ?? 0], 1, 100)).join("");
     const memFrac = s ? s.memUsed / s.memTotal : 0;
+    const gpuIdle = Boolean(g) && (g.memUsed ?? 0) < 64 * 1048576
+      && store.hist.gpu.length > 0 && store.hist.gpu.slice(-12).every((u) => !u);
     const rows = [
       line("cpu", "cpu", s?.cpu != null ? pct(s.cpu) : "…", spark(store.hist.cpu, graphW, 100), lvl.cpu),
       line("cores", "cores", `${s?.cores?.length ?? "—"} threads`, cores, "ok"),
@@ -600,9 +602,14 @@ export default class Annunciator extends View {
       line("psi", "pressure", s ? `cpu ${f1(s.psi.cpu)} io ${f1(s.psi.io)}` : "…", s ? `memory ${f1(s.psi.memory)}` : "", lvl.psiMem, col(lvl.psiMem)),
       line("mem", "memory", s ? `${bytes(s.memUsed)} / ${bytes(s.memTotal)}` : "…", s ? `${bar(memFrac, Math.max(4, graphW - 5))} ${pct(memFrac * 100).padStart(4)}` : "", lvl.mem),
       line("swap", "swap", s ? `${bytes(s.swapUsed)} / ${bytes(s.swapTotal)}` : "…", s && s.swapTotal ? `${bar(s.swapUsed / s.swapTotal, Math.max(4, graphW - 12))} in ${bytes(s.swapInAvg ?? 0).padStart(4)}/s` : "", lvl.swap),
-      line("gpu", "gpu", g ? `${pct(g.util)}  ${deg(g.temp)}` : "—", g ? spark(store.hist.gpu, graphW, 100) : (g === null ? "no gpu reading" : ""), "ok"),
-      line("gpumem", "gpu mem", g ? `${bytes(g.memUsed)} / ${bytes(g.memTotal)}` : "—", g?.memTotal ? bar(g.memUsed / g.memTotal, Math.max(4, graphW - 5)) : "", lvl.gpuMem),
-      line("gpupow", "gpu power", g?.power != null ? `${g.power.toFixed(0)} W` : "—", g?.name ?? "", "ok", c.dim),
+      ...(gpuIdle
+        // Asleep (no work for a minute, only the driver's memory): one line, and the panel shrinks.
+        ? [line("gpu", "gpu", "idle", g.name ?? "", "ok", c.dim)]
+        : [
+          line("gpu", "gpu", g ? `${pct(g.util)}  ${deg(g.temp)}` : "—", g ? spark(store.hist.gpu, graphW, 100) : (g === null ? "no gpu reading" : ""), "ok"),
+          line("gpumem", "gpu mem", g ? `${bytes(g.memUsed)} / ${bytes(g.memTotal)}` : "—", g?.memTotal ? bar(g.memUsed / g.memTotal, Math.max(4, graphW - 5)) : "", lvl.gpuMem),
+          line("gpupow", "gpu power", g?.power != null ? `${g.power.toFixed(0)} W` : "—", g?.name ?? "", "ok", c.dim),
+        ]),
       line("ctemp", "cpu temp", deg(tp.cpu), spark(store.hist.temp, graphW, 100), lvl.cpuTemp),
       line("ntemp", "nvme temp", deg(tp.nvme), "", "ok"),
       line("disk", "disk /", d ? `${bytes(d.used, 0)} / ${bytes(d.total, 0)}` : "…", d ? `${bar(d.pct / 100, Math.max(4, graphW - 5))} ${String(d.pct).padStart(3)}%` : "", lvl.disk),
@@ -614,6 +621,7 @@ export default class Annunciator extends View {
     const mine = Object.entries(lvl).filter(([k]) => !k.startsWith("claude_"));
     const worst = mine.some(([, l]) => l === "crit") ? "crit" : mine.some(([, l]) => l === "warn") ? "warn" : "ok";
     const summary = worst === "ok" ? "all normal" : mine.filter(([, l]) => l !== "ok").map(([k]) => offenderText(k)).join(" · ");
+    this.fitHeight("system", rows.length, false);
     return v_flex().size_full().min_h(0)
       .child(title("t-sys", "SYSTEM", [div().text_color(levelColor(c, worst) ?? c.dim).child(summary)], div().text_color(c.dim).child(s ? `${clock(s.at)}` : "")))
       .child(v_flex().id("sy-list").flex_1().min_h(0).overflow_y_scrollbar().children(rows));
