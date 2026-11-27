@@ -65,7 +65,7 @@ export const level = (key, v) => {
   return v >= l[1] ? "crit" : v >= l[0] ? "warn" : "ok";
 };
 
-// ── system: procfs batch every 2 s ──────────────────────────────────────────
+// ── system: procfs batch every 5 s ──────────────────────────────────────────
 const PROC_SCRIPT = [
   "echo @stat; cat /proc/stat",
   "echo @mem; cat /proc/meminfo",
@@ -91,7 +91,7 @@ const PAGE = 4096; // /proc/vmstat pswpin/pswpout count pages
 const SKIP_IF = /^(lo|docker\d*|br-|veth|virbr|tun|tap)/;
 
 export function probeSystem() {
-  return fresh("proc", 1800, async () => {
+  return fresh("proc", 4800, async () => {
     const r = await exec("sh", ["-c", PROC_SCRIPT], { timeout: 5000 });
     const s = sections(r.stdout);
     const now = Date.now();
@@ -147,18 +147,42 @@ export function probeSystem() {
     };
     store.sysPrev = raw;
     if (cpu != null) push(store.hist.cpu, cpu);
-    sample.cpuAvg = mean(store.hist.cpu.slice(-30)); // 30 × 2 s = 1 min
+    sample.cpuAvg = mean(store.hist.cpu.slice(-12)); // 12 × 5 s = 1 min
     if (sample.rx != null) push(store.hist.net, sample.rx + sample.tx);
     if (sample.rd != null) push(store.hist.disk, sample.rd + sample.wr);
     if (sample.swapIn != null) push(store.hist.swapIn, sample.swapIn);
-    const recent = store.hist.swapIn.slice(-5);
+    const recent = store.hist.swapIn.slice(-2); // 2 × 5 s = 10 s
     sample.swapInAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : null;
     store.sys = sample;
   });
 }
 
 // ── gpu + temperatures every 5 s ────────────────────────────────────────────
-const HW_SCRIPT = 'for d in /sys/class/hwmon/hwmon*; do n=$(cat $d/name 2>/dev/null); for f in $d/temp*_input; do [ -r "$f" ] && echo "$n $(cat ${f%_input}_label 2>/dev/null | tr " " _) $(cat $f)"; done; done';
+// The two temperatures shown (CPU package, NVMe) are read straight from their hwmon files.
+// Which files those are is found once, with one shell call; after that a probe is two file
+// reads and starts no process. Listing all 26-odd sensors every 5 s cost ~80 processes a time.
+// Path first, so a sensor with no label still splits into the right fields.
+const HW_LIST = 'for f in /sys/class/hwmon/hwmon*/temp*_input; do d=${f%/*}; echo "$f $(cat $d/name 2>/dev/null) $(cat ${f%_input}_label 2>/dev/null | tr " " _)"; done';
+let hwPaths = null; // {cpu, nvme}: the hwmon files to read; null = look again
+
+async function findHwmon() {
+  const r = await exec("sh", ["-c", HW_LIST], { timeout: 4000 });
+  const p = {};
+  for (const l of r.stdout.split("\n")) {
+    const [path, name, label] = l.trim().split(/\s+/);
+    if (!path || !name) continue;
+    if (name === "coretemp" && (label === "Package_id_0" || p.cpu == null)) p.cpu = path;
+    if (name === "k10temp" && p.cpu == null) p.cpu = path;
+    if (name === "nvme" && label && p.nvme == null) p.nvme = path;
+  }
+  hwPaths = p;
+}
+
+async function readTemp(path) {
+  if (!path) return null;
+  const v = Number(await readTextFile(path).catch(() => null)) / 1000;
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
 
 export function probeSensors() {
   return fresh("sensors", 4800, async () => {
@@ -171,16 +195,11 @@ export function probeSensors() {
         if (store.gpu.util != null) push(store.hist.gpu, store.gpu.util);
       }
     } catch (_e) { store.gpu = null; }
-    const r = await exec("sh", ["-c", HW_SCRIPT], { timeout: 4000 });
+    if (!hwPaths) await findHwmon();
     const temps = {};
-    for (const l of r.stdout.split("\n")) {
-      const [name, label, val] = l.trim().split(/\s+/);
-      if (!val) continue;
-      const c = Number(val) / 1000;
-      if (name === "coretemp" && (label === "Package_id_0" || temps.cpu == null)) temps.cpu = c;
-      if (name === "k10temp" && temps.cpu == null) temps.cpu = c;
-      if (name === "nvme" && temps.nvme == null) temps.nvme = c;
-    }
+    [temps.cpu, temps.nvme] = await Promise.all([readTemp(hwPaths.cpu), readTemp(hwPaths.nvme)]);
+    // A file that stopped answering (a driver reloaded, hwmon renumbered): find them again next time.
+    if ((hwPaths.cpu && temps.cpu == null) || (hwPaths.nvme && temps.nvme == null)) hwPaths = null;
     if (temps.cpu != null) push(store.hist.temp, temps.cpu);
     temps.cpuAvg = mean(store.hist.temp.slice(-12)); // 12 × 5 s = 1 min
     store.temps = temps;
@@ -391,7 +410,7 @@ function ctKind(x, prev) {
 }
 
 export function probeContainers() {
-  return fresh("containers", 9000, async () => {
+  return fresh("containers", 29000, async () => {
     const r = await exec("sh", ["-c", `ids=$(docker ps -aq) || exit 3; [ -z "$ids" ] && exit 0; docker inspect -f '${CT_FORMAT}' $ids`], { timeout: 8000 })
       .catch((e) => ({ code: -1, stderr: String(e) }));
     // `docker inspect` exits 1 when a container vanished between `ps` and `inspect` (compose
@@ -430,7 +449,7 @@ export function probeContainers() {
 
 const UNIT = { B: 1, KB: 1e3, MB: 1e6, GB: 1e9, KIB: 1024, MIB: 1024 ** 2, GIB: 1024 ** 3, TIB: 1024 ** 4 };
 export function probeDockerStats() {
-  return fresh("dstats", 14000, async () => {
+  return fresh("dstats", 29000, async () => {
     const r = await exec("docker", ["stats", "--no-stream", "--format", "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"], { timeout: 8000 }).catch(() => null);
     if (!r || r.code !== 0) return;
     const out = {};

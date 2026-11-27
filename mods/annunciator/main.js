@@ -82,7 +82,10 @@ export default class Annunciator extends View {
     this.size = { width: 0, height: 0 };
     this.prefs = load("prefs", { faults: false, sort: "order", folded: [] });
     this.folded = new Set(this.prefs.folded);
-    const every = (ms, fn) => { fn(cx); cx.timer.every(ms, fn); };
+    // Timers skip their work while the window isn't presented (minimised, or suspended by the
+    // compositor) and pick up on the next tick once it is: nobody is looking, so don't probe.
+    const shown = () => window()?.visible !== false;
+    const every = (ms, fn) => { fn(cx); cx.timer.every(ms, (cx) => { if (shown()) fn(cx); }); };
 
     if (this.role === "roster") {
       every(5000, (cx) => cx.spawn(async (cx) => {
@@ -109,7 +112,7 @@ export default class Annunciator extends View {
       });
     }
     if (this.role === "system") {
-      every(2000, (cx) => cx.spawn(async (cx) => {
+      every(5000, (cx) => cx.spawn(async (cx) => {
         await Promise.all([probeSystem(), probeSensors(), probeDf()]);
         cx.notify();
       }));
@@ -130,7 +133,7 @@ export default class Annunciator extends View {
         const last = load("ctLast", null);
         if (Array.isArray(last?.list)) { store.containers = last.list; store.dstats = last.stats ?? {}; store.stamp.containersOk = last.at; }
       }
-      every(10000, (cx) => cx.spawn(async (cx) => {
+      every(30000, (cx) => cx.spawn(async (cx) => {
         await Promise.all([probeContainers(), probeDockerStats()]);
         if (Array.isArray(store.containers) && !store.ctFails) save("ctLast", { list: store.containers, stats: store.dstats, at: store.stamp.containersOk });
         cx.notify();
@@ -150,9 +153,9 @@ export default class Annunciator extends View {
         const now = JSON.stringify(levels());
         if (now !== last) { last = now; cx.notify(); }
       }));
-      cx.timer.every(10000, (cx) => cx.notify());
+      cx.timer.every(10000, (cx) => { if (shown()) cx.notify(); });
     }
-    if (this.role === "pane") cx.timer.every(30000, (cx) => cx.notify());
+    if (this.role === "pane") cx.timer.every(30000, (cx) => { if (shown()) cx.notify(); });
     if (this.role === "wall") {
       // The roster isn't shown on the wall, so its headers keep the shared probes fresh
       // (each probe runs once per interval however many copies ask).
@@ -788,7 +791,7 @@ export default class Annunciator extends View {
         ...(n("unhealthy") ? [div().text_color(c.red).child(`· ${n("unhealthy")} unhealthy`)] : []),
         ...(failedToday ? [div().text_color(c.red).child(`· ${failedToday} failed today`)] : []),
         `· ${all.length - live.length - trouble.length} stopped`];
-      // Still showing the last good read: say so once reads have failed three times running (~30 s).
+      // Still showing the last good read: say so once reads have failed three times running (~90 s).
       if (store.ctFails >= 3) parts.push(div().text_color(c.red).child(`· ${store.ctError}, last read ${ago(now - (store.stamp.containersOk ?? now))} ago`));
     }
     const note = all == null ? (store.ctFails ? store.ctError : "reading docker…") : lines.length ? null : "no containers running";
